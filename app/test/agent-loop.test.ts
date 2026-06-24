@@ -88,7 +88,12 @@ describe('显式 mock 闭环（heuristic mock 驱动 runTurn）', () => {
   it('runTurnStream 逐字流式 + 工具足迹增量，拼接增量=最终回复', async () => {
     const { store, deps } = makeDeps();
     const events: StreamEvent[] = [];
-    const res = await runTurnStream('这周要做完登录联调', deps, (e) => events.push(e));
+    const res = await runTurnStream(
+      '这周要做完登录联调',
+      deps,
+      (e) => events.push(e),
+      new AbortController().signal
+    );
 
     expect(store.getSnapshot().goals).toHaveLength(1);
     const textEvents = events.filter((e): e is Extract<StreamEvent, { kind: 'text' }> => e.kind === 'text');

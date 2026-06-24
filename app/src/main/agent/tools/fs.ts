@@ -11,16 +11,12 @@ import path from 'node:path';
 import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from '../context';
-import { getWorkspace, resolveInWorkspace } from '../workspace';
+import { resolveInWorkspace, rootOf } from '../workspace';
 import { defineTool } from './define';
 
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_LIST_ENTRIES = 500;
 const MAX_GREP_MATCHES = 200;
-
-function rootOf(rc?: RunContext<AgentContext>): string {
-  return rc?.context?.workspace?.root ?? getWorkspace().root;
-}
 
 function trace(rc: RunContext<AgentContext> | undefined, tool: string, summary: string): void {
   rc?.context?.trace.push({ tool, summary });

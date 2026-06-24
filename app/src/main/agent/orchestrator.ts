@@ -111,7 +111,7 @@ export async function runTurnStream(
   text: string,
   deps: RunTurnDeps,
   onEvent: (event: StreamEvent) => void,
-  signal: AbortSignal = AbortSignal.timeout(AGENT_TIMEOUT_MS)
+  signal: AbortSignal
 ): Promise<RunTurnResult> {
   const { store, agent, trace, context } = prepare(text, deps);
 

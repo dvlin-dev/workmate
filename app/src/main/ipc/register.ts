@@ -5,7 +5,6 @@
 
 import { app, ipcMain, shell } from 'electron';
 import { mkdirSync } from 'node:fs';
-import { generateText } from 'ai';
 import { CH } from '@shared/ipc';
 import type { AppResult, AppUpdateState, SendMessageResult } from '@shared/ipc';
 import { hasApiKey, type AppConfig } from '@shared/config';
@@ -13,9 +12,9 @@ import type { Snapshot } from '@shared/types';
 import type { SkillSummary, SkillDetail } from '../skills/types';
 import type { WorkmateStore } from '../store';
 import type { ReminderBridge, ReportService } from '../agent/context';
-import { ReminderPermissionError } from '../agent/context';
-import { runTurnStream, AGENT_TIMEOUT_MS } from '../agent/orchestrator';
-import { buildRawModel } from '../agent/model';
+import { ReminderPermissionError } from '../reminders/errors';
+import { createTurnSession, isTimeoutError } from '../agent/turn-session';
+import { testProvider } from '../agent/model';
 import { getToolLogger, getLogsDir } from '../agent/tool-logger';
 import { getSkillsRegistry } from '../skills';
 import type { UpdateService } from '../updater';
@@ -28,28 +27,14 @@ export interface IpcDeps {
   updates: UpdateService;
 }
 
-const TEST_TIMEOUT_MS = 30_000;
-
-// 只有超时算 LLM_TIMEOUT；用户主动取消（AbortError）在编排器内静默收尾、不抛错。
-function isTimeout(error: unknown): boolean {
-  return error instanceof Error && error.name === 'TimeoutError';
-}
-
-function timeoutReason(): Error {
-  return Object.assign(new Error('LLM 响应超时'), { name: 'TimeoutError' });
-}
-function cancelReason(): Error {
-  return Object.assign(new Error('用户取消'), { name: 'AbortError' });
-}
-
 export function registerIpc(deps: IpcDeps): void {
   const { store, reminders, report, updates } = deps;
   const skills = getSkillsRegistry();
   void skills.refresh(); // 后台预热（拷预装 + 扫描）；失败不阻塞
   const toolLogger = getToolLogger(); // 工具执行日志（本地 JSONL 留存）
 
-  // 当前进行中的一轮对话（单窗口单飞）；用于超时与用户取消
-  let currentController: AbortController | null = null;
+  // 一轮对话的单飞 + 超时/取消，全部封进会话协调器（见 agent/turn-session.ts）
+  const session = createTurnSession({ store, reminders, report, skills, toolLogger });
 
   ipcMain.handle(
     CH.ping,
@@ -66,37 +51,22 @@ export function registerIpc(deps: IpcDeps): void {
       return fail('CONFIG_REQUIRED', '请先在设置里填写 apiKey，再发送消息。');
     }
 
-    const controller = new AbortController();
-    currentController = controller;
-    const timer = setTimeout(() => controller.abort(timeoutReason()), AGENT_TIMEOUT_MS);
-
     try {
-      const result = await runTurnStream(
-        text,
-        { store, reminders, report, skills, toolLogger },
-        (chunk) => e.sender.send(CH.agentChunk, chunk), // 逐字/工具足迹只回发起窗口
-        controller.signal
-      );
+      const result = await session.run(text, (chunk) => e.sender.send(CH.agentChunk, chunk));
       broadcastToAllWindows(CH.snapshotChanged, result.snapshot);
       return ok(result);
     } catch (error) {
       // 即使失败也补发快照：tool 可能已落盘改动，保证看板与磁盘一致
       broadcastToAllWindows(CH.snapshotChanged, store.getSnapshot());
-      const code = isTimeout(error) ? 'LLM_TIMEOUT' : 'LLM_ERROR';
+      const code = isTimeoutError(error) ? 'LLM_TIMEOUT' : 'LLM_ERROR';
       return fail(code, errorMessage(error) || '搭子有点忙，稍后再试');
-    } finally {
-      clearTimeout(timer);
-      if (currentController === controller) currentController = null;
     }
   });
 
-  ipcMain.handle(CH.agentCancel, (): AppResult<{ cancelled: boolean }> => {
-    if (currentController) {
-      currentController.abort(cancelReason());
-      return ok({ cancelled: true });
-    }
-    return ok({ cancelled: false });
-  });
+  ipcMain.handle(
+    CH.agentCancel,
+    (): AppResult<{ cancelled: boolean }> => ok({ cancelled: session.cancel() })
+  );
 
   // ── 看板人工操作（人机协作）：mutate → 广播 → 返回最新快照 ───────
   const boardOp = (mutate: () => void): AppResult<Snapshot> => {
@@ -166,14 +136,9 @@ export function registerIpc(deps: IpcDeps): void {
     if (!llm.apiKey) return fail('BAD_INPUT', '请先填写 apiKey');
     if (!llm.baseURL || !llm.model) return fail('BAD_INPUT', '请填写 baseURL 与 model');
     try {
-      const { text } = await generateText({
-        model: buildRawModel(llm),
-        prompt: 'Say "Test successful"',
-        abortSignal: AbortSignal.timeout(TEST_TIMEOUT_MS),
-      });
-      return ok({ message: text.trim() || '连接成功' });
+      return ok({ message: await testProvider(llm) });
     } catch (error) {
-      const code = isTimeout(error) ? 'LLM_TIMEOUT' : 'LLM_ERROR';
+      const code = isTimeoutError(error) ? 'LLM_TIMEOUT' : 'LLM_ERROR';
       return fail(code, errorMessage(error) || '连接失败，请检查 baseURL / apiKey / model');
     }
   });

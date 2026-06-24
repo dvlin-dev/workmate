@@ -8,7 +8,7 @@ import { spawn } from 'node:child_process';
 import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from '../context';
-import { getWorkspace, resolveInWorkspace } from '../workspace';
+import { resolveInWorkspace, rootOf } from '../workspace';
 import { defineTool } from './define';
 
 const DEFAULT_TIMEOUT = 120_000; // 2min
@@ -70,7 +70,7 @@ const bashTool = defineTool({
     timeout: z.number().int().min(1000).max(MAX_TIMEOUT).default(DEFAULT_TIMEOUT).describe('Timeout in milliseconds'),
   }),
   execute: async ({ command, cwd, timeout }, rc?: RunContext<AgentContext>) => {
-    const root = rc?.context?.workspace?.root ?? getWorkspace().root;
+    const root = rootOf(rc);
     const workdir = cwd ? resolveInWorkspace(root, cwd) : root;
     const result = await runShell(command, workdir, timeout);
     rc?.context?.trace.push({

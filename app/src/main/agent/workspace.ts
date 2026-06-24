@@ -7,7 +7,8 @@
 import { app } from 'electron';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
-import type { Workspace } from './context';
+import type { RunContext } from '@openai/agents-core';
+import type { AgentContext, Workspace } from './context';
 
 let cached: Workspace | null = null;
 
@@ -22,4 +23,9 @@ export function getWorkspace(): Workspace {
 /** 把相对路径解析到工作区根；绝对路径原样返回（开放权限） */
 export function resolveInWorkspace(root: string, target: string): string {
   return path.isAbsolute(target) ? target : path.resolve(root, target);
+}
+
+/** 执行工具的 cwd 锚点：优先用本次 run 注入的 workspace，缺省回退单例 */
+export function rootOf(rc?: RunContext<AgentContext>): string {
+  return rc?.context?.workspace?.root ?? getWorkspace().root;
 }
