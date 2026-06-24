@@ -18,15 +18,15 @@ interface ReminderBridge {
 - **用 `child_process.execFile('osascript', ['-e', SCRIPT, ...argv])`**，把 `title`/`due` 作为 **argv** 传入；脚本本体是常量字符串。**绝不把用户文本拼进脚本**（防 AppleScript 注入）——这是红线。
 - **列表归集**：写入固定列表 "Workmate"，不存在则先建（避免污染默认列表）。
 - **due**：缺省时创建无截止日期的提醒。带 due 时，把 ISO 时间拆成 `年/月/日/时/分` 作为 argv 传入，在 AppleScript 里按分量构造 `date`；**先 `set day to 1` 再设月份**，避免设月时日期溢出（如当前 31 日设到 2 月）。
-- 设约 10s 超时，避免 osascript 卡死阻塞主进程。
+- **必须批量合并为一次 osascript（根因·红线）**：agent 一轮里会并行调用多个 `write_reminder`。对 Reminders.app **反复 spawn 独立 osascript** 在连发下不安全——第一条后 Apple Events 派发被拖住 / EventKit 锁库，表现为"第一条成功、后续全部卡到超时"（非权限错误，`durationMs≈timeout`）。**根治：把同一波写入微批合并成一次 osascript**——一次 `tell application "Reminders"`、建一次列表、在同一个 run loop 里循环创建整批提醒，按创建顺序返回 id（换行分隔）。bridge 用 `setTimeout(0)` 收集同一 tick 内的全部 `writeReminderById`，合并 flush；并保留串行队列防多批叠加。单机本地 app 多进程并发本无收益。
+- 批量调用设约 20s 超时（含 Reminders.app 冷启动）；瞬时失败（非权限）整批退避重试（默认 3 次、200ms×attempt），`ReminderPermissionError` 不重试（走降级引导授权）。osascript 执行器（`OsascriptRunner`）可注入，便于对合并/重试做单测。
 
 ## 3. AppleScript 需实现的逻辑（行为规格）
 
-脚本以 `on run argv … end run` 接收参数，依次：
-1. 取 `title`（argv 第 1 项）、列表名 "Workmate"。
-2. `tell application "Reminders"`：若列表不存在则 `make new list`。
-3. 若 argv 含日期分量（≥6 项）：用 `current date` 起，按上节顺序设 `year/month/day/hours/minutes`、`seconds=0`，`make new reminder at theList with properties {name:title, due date:dueDate}`；否则只设 `name`。
-4. `return id of newReminder`（形如 `x-apple-reminderkit://…`，存为 `reminderId`）。
+批量脚本以 `on run argv … end run` 接收参数：`argv = [listName, 然后每个提醒一段: title, hasDue('0'|'1'), (year,month,day,hours,minutes if hasDue)]`。
+1. 取列表名（argv 第 1 项）；`tell application "Reminders"`：若列表不存在则 `make new list`。
+2. 从第 2 项起按变长步幅循环（有 due 步幅 7、无 due 步幅 2）：有 due 时用 `current date` 起，**先 `set day to 1`** 再设 `year/month/day/hours/minutes`、`seconds=0`，`make new reminder … {name:title, due date:dueDate}`；否则只设 `name`。
+3. 每条把 `id of newReminder` 追加进结果，循环结束 `return out as text`（换行分隔，形如 `x-apple-reminder://…`）。bridge 按行切回 `reminderId[]`，按序回填各 `task.reminderId`。
 
 ## 4. 权限（TCC）与 Info.plist
 
