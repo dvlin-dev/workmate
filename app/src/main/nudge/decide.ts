@@ -6,6 +6,7 @@
 import type { NudgeKind, NudgePayload } from '@shared/ipc';
 import type { AppConfig } from '@shared/config';
 import type { WeeklyPlan } from '@shared/types';
+import { sameLocalDay } from '../date';
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -21,15 +22,6 @@ export interface NudgeDecisionInput {
   now: Date;
   /** 该类提醒今天是否已发过（频率克制：一天最多一次） */
   alreadySentToday: (kind: NudgeKind) => boolean;
-}
-
-function sameLocalDay(iso: string, now: Date): boolean {
-  const d = new Date(iso);
-  return (
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  );
 }
 
 /** 返回本次 tick 应发的一条提醒（优先级 friday > stall > evening），否则 null */

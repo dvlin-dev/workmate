@@ -20,6 +20,7 @@ import {
 } from '@shared/types';
 import { DEFAULT_CONFIG } from '@shared/config';
 import { applyConfigPatch } from './config';
+import { formatLocalYMD, weekOf as weekOfMonday } from './date';
 
 export interface WorkmateData {
   version: number;
@@ -42,15 +43,6 @@ const TODAY_FOCUS_LIMIT = 12;
 
 export function createEmptyData(): WorkmateData {
   return { version: DATA_VERSION, weeks: [], config: structuredClone(DEFAULT_CONFIG), nudgeLastSent: {} };
-}
-
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-/** 本地时区 YYYY-MM-DD */
-function formatLocalYMD(date: Date): string {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
 /** 把 due（ISO 或纯日期）规整为本地日期 YYYY-MM-DD；非法/缺省返回 undefined */
@@ -95,13 +87,9 @@ export class WorkmateStore {
   }
 
   // ── 日期 / 周锚 ────────────────────────────────────────────
-  /** 该日期所在周的周一（本地时区）YYYY-MM-DD */
+  /** 该日期所在周的周一（本地时区）YYYY-MM-DD。日期原语见 date.ts */
   weekOf(date: Date): string {
-    const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const day = d.getDay(); // 0=周日..6=周六
-    const diffToMonday = day === 0 ? -6 : 1 - day;
-    d.setDate(d.getDate() + diffToMonday);
-    return formatLocalYMD(d);
+    return weekOfMonday(date);
   }
 
   private todayStr(): string {

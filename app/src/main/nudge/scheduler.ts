@@ -9,13 +9,10 @@ import { CH, type NudgeKind, type NudgePayload } from '@shared/ipc';
 import type { WorkmateStore } from '../store';
 import { broadcastToAllWindows } from '../ipc/shared';
 import { focusOrCreateMainWindow } from '../window';
+import { formatLocalYMD } from '../date';
 import { pickNudge } from './decide';
 
 const TICK_MS = 30 * 60 * 1000; // 30 分钟
-
-function ymd(d: Date): string {
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
-}
 
 /** 启动定时器；启动即评估一次，返回停止函数。lastSent 跨重启持久化（store） */
 export function startNudgeScheduler(store: WorkmateStore): () => void {
@@ -39,7 +36,7 @@ export function startNudgeScheduler(store: WorkmateStore): () => void {
     if (!Notification.isSupported()) return;
 
     const now = new Date();
-    const today = ymd(now);
+    const today = formatLocalYMD(now);
     const lastSent = store.getNudgeLastSent();
     const payload = pickNudge({
       week: store.getCurrentWeekData(),
