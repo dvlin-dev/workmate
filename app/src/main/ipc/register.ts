@@ -4,6 +4,7 @@
  */
 
 import { app, ipcMain, shell } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { generateText } from 'ai';
 import { CH } from '@shared/ipc';
 import type { AppResult, SendMessageResult } from '@shared/ipc';
@@ -15,6 +16,7 @@ import type { ReminderBridge, ReportService } from '../agent/context';
 import { ReminderPermissionError } from '../agent/context';
 import { runTurnStream, AGENT_TIMEOUT_MS } from '../agent/orchestrator';
 import { buildRawModel } from '../agent/model';
+import { getToolLogger, getLogsDir } from '../agent/tool-logger';
 import { getSkillsRegistry } from '../skills';
 import { asObjectRecord, broadcastToAllWindows, errorMessage, fail, ok } from './shared';
 
@@ -42,6 +44,7 @@ export function registerIpc(deps: IpcDeps): void {
   const { store, reminders, report } = deps;
   const skills = getSkillsRegistry();
   void skills.refresh(); // 后台预热（拷预装 + 扫描）；失败不阻塞
+  const toolLogger = getToolLogger(); // 工具执行日志（本地 JSONL 留存）
 
   // 当前进行中的一轮对话（单窗口单飞）；用于超时与用户取消
   let currentController: AbortController | null = null;
@@ -68,7 +71,7 @@ export function registerIpc(deps: IpcDeps): void {
     try {
       const result = await runTurnStream(
         text,
-        { store, reminders, report, skills },
+        { store, reminders, report, skills, toolLogger },
         (chunk) => e.sender.send(CH.agentChunk, chunk), // 逐字/工具足迹只回发起窗口
         controller.signal
       );
@@ -124,14 +127,6 @@ export function registerIpc(deps: IpcDeps): void {
     const due = typeof raw.due === 'string' && raw.due ? raw.due : undefined;
     if (!goalId || !title) return fail('BAD_INPUT', '缺少 goalId 或标题');
     return boardOp(() => store.addTask(goalId, title, due));
-  });
-
-  ipcMain.handle(CH.boardSetProgress, (_e, payload): AppResult<Snapshot> => {
-    const raw = asObjectRecord(payload);
-    const goalId = String(raw.goalId ?? '');
-    const progress = Number(raw.progress);
-    if (!goalId || Number.isNaN(progress)) return fail('BAD_INPUT', '缺少 goalId 或进度值');
-    return boardOp(() => store.updateProgress(goalId, progress, '手动调整进度'));
   });
 
   ipcMain.handle(CH.boardClearWeek, (): AppResult<Snapshot> =>
@@ -235,6 +230,18 @@ export function registerIpc(deps: IpcDeps): void {
       return ok(undefined);
     } catch (error) {
       return fail('INTERNAL', errorMessage(error) || '打开目录失败');
+    }
+  });
+
+  // ── 工具执行日志 ────────────────────────────────────────────
+  ipcMain.handle(CH.logsOpenDirectory, async (): Promise<AppResult<void>> => {
+    try {
+      const dir = getLogsDir();
+      mkdirSync(dir, { recursive: true }); // 没产生过日志时目录可能尚不存在
+      await shell.openPath(dir);
+      return ok(undefined);
+    } catch (error) {
+      return fail('INTERNAL', errorMessage(error) || '打开日志目录失败');
     }
   });
 }

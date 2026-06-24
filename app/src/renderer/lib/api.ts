@@ -57,10 +57,6 @@ export async function addTask(goalId: string, title: string, due?: string): Prom
   return unwrap(await api().board.addTask(goalId, title, due));
 }
 
-export async function setProgress(goalId: string, progress: number): Promise<Snapshot> {
-  return unwrap(await api().board.setProgress(goalId, progress));
-}
-
 export async function clearWeek(): Promise<Snapshot> {
   return unwrap(await api().board.clearWeek());
 }
@@ -112,4 +108,9 @@ export async function setSkillEnabled(name: string, enabled: boolean): Promise<S
 
 export async function openSkillDirectory(name: string): Promise<void> {
   return unwrap(await api().skills.openDirectory(name));
+}
+
+// ── 工具执行日志 ──────────────────────────────────────────
+export async function openLogsDirectory(): Promise<void> {
+  return unwrap(await api().logs.openDirectory());
 }

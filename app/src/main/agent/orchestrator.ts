@@ -8,7 +8,14 @@ import { run, user, MaxTurnsExceededError } from '@openai/agents-core';
 import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot, ToolTraceItem } from '@shared/types';
 import type { WorkmateStore } from '../store';
-import type { AgentContext, ReminderBridge, ReportService, SkillsPort, Workspace } from './context';
+import type {
+  AgentContext,
+  ReminderBridge,
+  ReportService,
+  SkillsPort,
+  ToolLogger,
+  Workspace,
+} from './context';
 import { buildAgent } from './agent';
 import { getWorkspace } from './workspace';
 import { MissingApiKeyError } from './model';
@@ -32,6 +39,8 @@ export interface RunTurnDeps {
   skills?: SkillsPort;
   /** 测试可注入临时 workspace，避免依赖 Electron app.getPath */
   workspace?: Workspace;
+  /** 工具执行日志（运行时由 IPC 注入文件实现；测试不传则不落盘） */
+  toolLogger?: ToolLogger;
 }
 
 export interface RunTurnResult {
@@ -43,7 +52,8 @@ export interface RunTurnResult {
 /** 流式增量回调事件 */
 export type StreamEvent =
   | { kind: 'text'; delta: string }
-  | { kind: 'tool'; item: ToolTraceItem };
+  | { kind: 'tool'; item: ToolTraceItem }
+  | { kind: 'snapshot'; snapshot: Snapshot };
 
 function prepare(text: string, deps: RunTurnDeps) {
   const { store, reminders, report, skills } = deps;
@@ -62,6 +72,7 @@ function prepare(text: string, deps: RunTurnDeps) {
     trace,
     skills,
     workspace: deps.workspace ?? getWorkspace(),
+    toolLogger: deps.toolLogger,
   };
   const skillsBlock = skills?.getAvailableSkillsPrompt() ?? '';
   const agent = buildAgent(config, snapshot, skillsBlock, { allowMockModel: deps.allowMockModel });
@@ -107,10 +118,14 @@ export async function runTurnStream(
   let reply = '';
   const emitted = { n: 0 };
   const flushTrace = () => {
+    let advanced = false;
     while (emitted.n < trace.length) {
       onEvent({ kind: 'tool', item: trace[emitted.n]! });
       emitted.n += 1;
+      advanced = true;
     }
+    // 有新工具执行完 → store 可能已被改写，立刻下发最新快照让看板实时刷新（不等整轮结束）
+    if (advanced) onEvent({ kind: 'snapshot', snapshot: store.getSnapshot() });
   };
 
   try {

@@ -57,16 +57,17 @@ describe('显式 mock 闭环（heuristic mock 驱动 runTurn）', () => {
     expect(res.reply.length).toBeGreaterThan(0);
   });
 
-  it('进展输入 → find_goal + update_progress 改进度', async () => {
+  it('进展输入 → find_goal + complete_goal，进度推进到 100', async () => {
     const { store, deps } = makeDeps();
     await runTurn('这周要做完登录联调', deps);
     const res = await runTurn('登录联调通了', deps);
 
     const goal = store.getSnapshot().goals[0];
-    expect(goal.progress).toBeGreaterThan(0);
+    expect(goal.progress).toBe(100);
+    expect(goal.status).toBe('done');
     const tools = res.toolTrace.map((t) => t.tool);
     expect(tools).toContain('find_goal');
-    expect(tools).toContain('update_progress');
+    expect(tools).toContain('complete_goal');
   });
 
   it('"生成周报" → generate_report 被调用', async () => {
@@ -96,5 +97,12 @@ describe('显式 mock 闭环（heuristic mock 驱动 runTurn）', () => {
     expect(toolEvents.map((e) => e.item.tool)).toContain('create_goal');
     expect(res.reply.length).toBeGreaterThan(0);
     expect(textEvents.map((e) => e.delta).join('')).toBe(res.reply);
+
+    // 实时看板：流式过程中应下发快照，且最后一条已含新建的目标（不等整轮结束）
+    const snapshotEvents = events.filter(
+      (e): e is Extract<StreamEvent, { kind: 'snapshot' }> => e.kind === 'snapshot'
+    );
+    expect(snapshotEvents.length).toBeGreaterThan(0);
+    expect(snapshotEvents.at(-1)!.snapshot.goals).toHaveLength(1);
   });
 });

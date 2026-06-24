@@ -23,13 +23,12 @@ type AppErrorCode =
 |------|------|------|------|
 | `app:ping` | invoke | — | `AppResult<{ pong: true; version: string }>`（健康检查） |
 | `agent:sendMessage` | invoke | `{ text: string }` | `AppResult<SendMessageResult>`（结束时 resolve；期间流式发 `agent:chunk`；超时→`LLM_TIMEOUT`；无 key→`CONFIG_REQUIRED`） |
-| `agent:chunk` | event(主→渲染，仅发起窗口) | — | `AgentChunk`（逐字 `text` / 工具足迹 `tool` 增量） |
+| `agent:chunk` | event(主→渲染，仅发起窗口) | — | `AgentChunk`（逐字 `text` / 工具足迹 `tool` / 看板 `snapshot` 增量；snapshot 让右侧面板实时刷新，不等整轮结束） |
 | `agent:cancel` | invoke | — | `AppResult<{ cancelled: boolean }>`（中断当前轮，保留已收到部分） |
 | `menu:open-settings` | event(主→渲染) | — | —（菜单「设置…」⌘, 触发，渲染层打开设置弹窗） |
 | `board:toggleTask` | invoke | `{ taskId }` | `AppResult<Snapshot>`（人工勾选/取消） |
 | `board:addGoal` | invoke | `{ title }` | `AppResult<Snapshot>`（人工新建目标） |
 | `board:addTask` | invoke | `{ goalId, title, due? }` | `AppResult<Snapshot>`（人工加待办） |
-| `board:setProgress` | invoke | `{ goalId, progress }` | `AppResult<Snapshot>`（人工调进度） |
 | `board:clearWeek` | invoke | — | `AppResult<Snapshot>`（清空本周目标+进度流，保留配置/历史周） |
 | `snapshot:get` | invoke | — | `AppResult<Snapshot>` |
 | `snapshot:changed` | event(主→渲染) | — | `Snapshot`（每轮 agent 结束后广播） |
@@ -42,6 +41,7 @@ type AppErrorCode =
 | `skills:getDetail` | invoke | `{ name }` | `AppResult<SkillDetail>` |
 | `skills:setEnabled` | invoke | `{ name, enabled }` | `AppResult<SkillSummary>` |
 | `skills:openDirectory` | invoke | `{ name }` | `AppResult<void>`（shell 打开技能目录） |
+| `logs:openDirectory` | invoke | — | `AppResult<void>`（shell 打开工具执行日志目录 `userData/logs`） |
 | `nudge:notify` | event(主→渲染) | — | `NudgePayload`（点击通知唤起窗口） |
 
 ## 3. `WorkmateApi` 接口（契约，`shared/ipc.ts`）
@@ -59,17 +59,19 @@ interface TestProviderInput { baseURL: string; apiKey: string; model: string }
 type AgentChunk =
   | { kind: 'text'; delta: string }
   | { kind: 'tool'; item: ToolTraceItem }
+  | { kind: 'snapshot'; snapshot: Snapshot }   // tool 改写 store 后实时下发，看板即时刷新
 
 interface WorkmateApi {
   ping(): Promise<AppResult<{ pong: true; version: string }>>
   onOpenSettings(h: () => void): () => void
   agent:     { sendMessage(text: string): Promise<AppResult<SendMessageResult>>; cancel(): Promise<AppResult<{ cancelled: boolean }>>; onChunk(h: (c: AgentChunk) => void): () => void }
-  board:     { toggleTask(taskId): Promise<AppResult<Snapshot>>; addGoal(title): Promise<AppResult<Snapshot>>; addTask(goalId, title, due?): Promise<AppResult<Snapshot>>; setProgress(goalId, progress): Promise<AppResult<Snapshot>>; clearWeek(): Promise<AppResult<Snapshot>> }
+  board:     { toggleTask(taskId): Promise<AppResult<Snapshot>>; addGoal(title): Promise<AppResult<Snapshot>>; addTask(goalId, title, due?): Promise<AppResult<Snapshot>>; clearWeek(): Promise<AppResult<Snapshot>> }
   snapshot:  { get(): Promise<AppResult<Snapshot>>; onChange(h: (s: Snapshot) => void): () => void }
   report:    { generate(weekOf?: string): Promise<AppResult<{ markdown: string }>> }
   config:    { get(): Promise<AppResult<AppConfig>>; set(patch): Promise<AppResult<AppConfig>>; testProvider(input: TestProviderInput): Promise<AppResult<{ message: string }>> }
   reminders: { write(taskId: string): Promise<AppResult<{ reminderId: string }>> }
   skills:    { list(): Promise<AppResult<SkillSummary[]>>; getDetail(name): Promise<AppResult<SkillDetail>>; setEnabled(name, enabled): Promise<AppResult<SkillSummary>>; openDirectory(name): Promise<AppResult<void>> }
+  logs:      { openDirectory(): Promise<AppResult<void>> }
   nudge:     { onNotify(h: (n: NudgePayload) => void): () => void }
 }
 // 渲染层：declare global { interface Window { workmateAPI: WorkmateApi } }

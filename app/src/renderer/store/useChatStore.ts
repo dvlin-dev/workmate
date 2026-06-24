@@ -78,6 +78,11 @@ export const useChatStore = create<ChatState>((set, get) => {
     subscribeChunks: () => onAgentChunk((chunk) => get().applyChunk(chunk)),
 
     applyChunk: (chunk) => {
+      // 看板快照：tool 改写 store 后实时下发，立刻刷新右侧面板（与对话足迹同步，不等整轮结束）
+      if (chunk.kind === 'snapshot') {
+        useSnapshotStore.getState().setSnapshot(chunk.snapshot);
+        return;
+      }
       const id = get().activeId;
       if (!id) return;
       set((s) => ({

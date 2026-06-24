@@ -24,12 +24,12 @@ export const CH = {
   boardToggleTask: 'board:toggleTask',
   boardAddGoal: 'board:addGoal',
   boardAddTask: 'board:addTask',
-  boardSetProgress: 'board:setProgress',
   boardClearWeek: 'board:clearWeek',
   skillsList: 'skills:list',
   skillsGetDetail: 'skills:getDetail',
   skillsSetEnabled: 'skills:setEnabled',
   skillsOpenDirectory: 'skills:openDirectory',
+  logsOpenDirectory: 'logs:openDirectory',
 } as const;
 
 export type AppErrorCode =
@@ -56,10 +56,14 @@ export interface SendMessageResult {
   toolTrace: ToolTraceItem[];
 }
 
-/** 流式增量：文本逐字 / 工具足迹逐条（done/error 由 sendMessage 的 invoke 结果承载） */
+/**
+ * 流式增量：文本逐字 / 工具足迹逐条 / 看板快照（tool 改写 store 后实时下发，看板即时刷新）。
+ * done/error 由 sendMessage 的 invoke 结果承载。
+ */
 export type AgentChunk =
   | { kind: 'text'; delta: string }
-  | { kind: 'tool'; item: ToolTraceItem };
+  | { kind: 'tool'; item: ToolTraceItem }
+  | { kind: 'snapshot'; snapshot: Snapshot };
 
 /** 测试连接入参（无状态：用表单值而非已存 config） */
 export interface TestProviderInput {
@@ -110,7 +114,6 @@ export interface WorkmateApi {
     toggleTask(taskId: string): Promise<AppResult<Snapshot>>;
     addGoal(title: string): Promise<AppResult<Snapshot>>;
     addTask(goalId: string, title: string, due?: string): Promise<AppResult<Snapshot>>;
-    setProgress(goalId: string, progress: number): Promise<AppResult<Snapshot>>;
     /** 清空当前周的目标与进度流（保留配置与历史周） */
     clearWeek(): Promise<AppResult<Snapshot>>;
   };
@@ -135,6 +138,10 @@ export interface WorkmateApi {
     getDetail(name: string): Promise<AppResult<SkillDetail>>;
     setEnabled(name: string, enabled: boolean): Promise<AppResult<SkillSummary>>;
     openDirectory(name: string): Promise<AppResult<void>>;
+  };
+  /** 工具执行日志（本地留存）：在访达打开日志目录 */
+  logs: {
+    openDirectory(): Promise<AppResult<void>>;
   };
   nudge: {
     onNotify(handler: (payload: NudgePayload) => void): () => void;

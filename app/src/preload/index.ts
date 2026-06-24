@@ -28,7 +28,6 @@ const api: WorkmateApi = {
     toggleTask: (taskId) => ipcRenderer.invoke(CH.boardToggleTask, { taskId }),
     addGoal: (title) => ipcRenderer.invoke(CH.boardAddGoal, { title }),
     addTask: (goalId, title, due) => ipcRenderer.invoke(CH.boardAddTask, { goalId, title, due }),
-    setProgress: (goalId, progress) => ipcRenderer.invoke(CH.boardSetProgress, { goalId, progress }),
     clearWeek: () => ipcRenderer.invoke(CH.boardClearWeek),
   },
   snapshot: {
@@ -55,6 +54,9 @@ const api: WorkmateApi = {
     getDetail: (name) => ipcRenderer.invoke(CH.skillsGetDetail, { name }),
     setEnabled: (name, enabled) => ipcRenderer.invoke(CH.skillsSetEnabled, { name, enabled }),
     openDirectory: (name) => ipcRenderer.invoke(CH.skillsOpenDirectory, { name }),
+  },
+  logs: {
+    openDirectory: () => ipcRenderer.invoke(CH.logsOpenDirectory),
   },
   nudge: {
     onNotify: (handler) => {
