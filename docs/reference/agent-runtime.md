@@ -49,21 +49,26 @@ interface AgentContext {
 
 ## 4. Tool 目录（spec — agent 契约）
 
-用 `tool({ name, description, parameters: zodSchema, execute(input, runContext) })` 定义（agents-core 标准写法），`execute` 经 `runContext.context` 拿 `AgentContext`，返回结构化对象。
-**不变量**：`create_goal`/`update_progress`/`complete_task` 在 `execute` 内自动 `store.appendEvent(...)`（落 `goal_created`/`progress_update`/`task_done`）；纯笔记用 `log_event`。每个 `execute` 末尾 `ctx.trace.push({tool,summary})`。
+所有工具统一经 `defineTool({ name, description, parameters: zodSchema, execute(input, runContext) })`（`agent/tools/define.ts`）定义——它在 agents-core 的 `tool()` 之上包一层**执行埋点**：计时、入参、成功/失败一律写 `ctx.toolLogger`（本地 JSONL，见 §4.1）。新增工具用 `defineTool` 即自动获得日志，无需各自接线。`execute` 经 `runContext.context` 拿 `AgentContext`，返回结构化对象。
+**进度是派生值**：没有"设置百分比"的工具——进度由 `store` 按"完成待办/总待办"自动算（详见 product-design §5）。想推进进度只能 `complete_task`（完成某待办）或 `complete_goal`（整体收口到 100%）。
+**事件不变量**：`create_goal`/`complete_task`/`complete_goal` 在 `execute` 内自动 `store.appendEvent(...)`（落 `goal_created`/`task_done`/`progress_update`）；纯笔记用 `log_event`。每个 `execute` 末尾 `ctx.trace.push({tool,summary,ok?})`（失败项 `ok:false`，看板足迹以告警样式区分）。
 
 | Tool | 入参（zod） | 返回 | 行为/副作用 |
 |------|-------------|------|-------------|
 | `create_goal` | `title:string` | `{ goalId }` | 建周目标；落 `goal_created` |
-| `add_task` | `goalId:string, title:string, due?:string(ISO)` | `{ taskId }` | 给目标加待办 |
-| `update_progress` | `goalId:string, progress:int 0–100, note:string` | `{ goalId, progress }` | 更新进度；落 `progress_update`(summary=note) |
-| `complete_task` | `taskId:string` | `{ taskId }` | 标记完成；落 `task_done` |
-| `find_goal` | `query:string` | `{ matches: {goalId,title,progress,status}[] }` | 标题包含/分词命中（不调 LLM）；空数组→agent 反问 |
-| `log_event` | `rawText, kind('note'|...), summary, relatedGoalId?` | `{ eventId }` | 写一条进度流事件 |
-| `write_reminder` | `taskId:string` | `{ reminderId } \| { error, needsPermission }` | 写入提醒事项（幂等）；失败不抛，返回 error 让 agent 口头引导授权 |
+| `add_task` | `goalId:string, title:string, due?:string(ISO)` | `{ taskId }` | 给目标加待办（拆得越细进度越准） |
+| `complete_task` | `taskId:string` | `{ taskId }` | 标记完成；进度按比例自动上涨；落 `task_done` |
+| `complete_goal` | `goalId:string` | `{ goalId, title, progress }` | 整体收口：勾全待办、进度置 100%、status=done；落 `progress_update` |
+| `find_goal` | `query:string` | `{ matches: {goalId,title,progress,status,tasks:{taskId,title,done}[]}[] }` | 标题包含/分词命中（不调 LLM）；返回待办清单含 taskId 供 complete_task；空数组→agent 反问 |
+| `log_event` | `rawText, kind('note'|...), summary, relatedGoalId?` | `{ eventId }` | 写一条进度流事件（不改进度条） |
+| `write_reminder` | `taskId:string` | `{ reminderId } \| { error, needsPermission }` | 写入提醒事项（幂等）；失败不抛，返回 error（trace 标 `ok:false`）让 agent 口头引导授权 |
 | `generate_report` | `weekOf?:string` | `{ markdown }` | 见 §7 |
 | `get_snapshot` | — | `Snapshot` | 自查上下文 |
 | `skill` | `name:string` | `{ name, content, baseDir, files } \| { error }` | 按名加载已启用技能正文（经 `ctx.skills.loadSkillForTool`）；未启用/未找到返回 error |
+
+### 4.1 工具执行日志（`agent/tool-logger.ts`）
+
+`ToolLogger` 端口（`agent/context.ts`）由 `defineTool` 在每次执行后写入：`{ts,tool,status('ok'|'error'),durationMs,input,error?}`。软失败（返回带 `error` 字段的对象，如 `write_reminder` 权限不足、`skill` 未找到）也记为 `error`。运行时实现 `createFileToolLogger` 追加到 `userData/logs/tool-executions.jsonl`（超 2MB 滚动一份 `.1`），设置页「打开日志目录」可查看；测试注入内存实现断言埋点。`AgentContext.toolLogger` 可选——不注入则不落盘。
 
 > **执行工具面（Skills 开放平台，`agent/tools/`）**：除上表外，agent 还装备 `read_file`/`write_file`/`edit_file`/`list_dir`/`glob`/`grep`（`fs.ts`）、`bash`（`bash.ts`，spawn 直执行、cwd=工作区、输出截断、**无沙箱无审批**）、`web_fetch`/`web_search`（`web.ts`）。这些工具读 `AgentContext.workspace.root`（默认 `userData/workspace`）定位 cwd；产物落工作区。技能用 `<available_skills>` 注入 system prompt、由 `skill` 工具按需加载。详见 `docs/plan/skills-integration.md`。
 
@@ -74,7 +79,7 @@ agents-core 标准范式（`new Agent({ name:'Workmate', instructions: buildSyst
 - `runTurn(text, deps)`：先检查 `apiKey`（除非单测显式 `allowMockModel`）；无 key 抛 `MissingApiKeyError` 且不落事件 → 有 key 后 `store.appendEvent({kind:'note', rawText:text, summary:text})`（录入即落原始事件）→ 构建 agent + `AgentContext{trace:[]}` → `run(agent, [user(text)], { maxTurns: 8, context })` → 返回 `{ reply: result.finalOutput ?? '', snapshot: store.getSnapshot(), toolTrace: ctx.trace }`。
 - `maxTurns` 即循环上限兜底：轻量归因默认 8；开放任务（skill + 文件/bash 多步产出）放宽到 **30**（`orchestrator.MAX_TURNS`）。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
 - 每轮后 store 已被 tool 改写并落盘；IPC 层负责 `broadcast(snapshot:changed)`（见 ipc-contract.md §4）。
-- **流式（已实现）**：`runTurnStream(text, deps, onEvent, signal)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`。IPC `agent:sendMessage` 用 `e.sender.send` 把 `agent:chunk` 只回发起窗口。显式测试 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
+- **流式（已实现）**：`runTurnStream(text, deps, onEvent, signal)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`，并紧接着 `onEvent({kind:'snapshot', snapshot: store.getSnapshot()})` 把最新看板下发（右侧面板实时刷新，不等整轮结束）。IPC `agent:sendMessage` 用 `e.sender.send` 把 `agent:chunk` 只回发起窗口。显式测试 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
 - **超时与取消（关键）**：agents-core 在 abort 时是**优雅 close 流**（`for await` 正常结束、`stream.completed` resolve、不抛错），所以超时/取消**必须在循环结束后查 `signal.aborted`**：reason 为 `TimeoutError` → 抛出（IPC 映射 `LLM_TIMEOUT`，兑现 §5 降级）；reason 为 `AbortError`（用户点「停止」走 `agent:cancel`）→ 保留已收到的部分文本、静默收尾。IPC 层每轮建一个 `AbortController` + `AGENT_TIMEOUT_MS` 定时器，`agent:cancel` abort 它。
 
 ## 6. system prompt

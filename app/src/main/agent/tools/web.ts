@@ -3,9 +3,10 @@
  * web_fetch：取网页转纯文本（截断）。web_search：DuckDuckGo 轻量 HTML 端点，无需 key；失败降级返回空。
  */
 
-import { tool, type RunContext, type Tool } from '@openai/agents-core';
+import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from '../context';
+import { defineTool } from './define';
 
 const FETCH_TIMEOUT = 15_000;
 const MAX_TEXT = 20_000;
@@ -36,7 +37,7 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
   }
 }
 
-const webFetchTool = tool({
+const webFetchTool = defineTool({
   name: 'web_fetch',
   description: '抓取一个网页 URL，返回其纯文本内容（已去标签、截断）。',
   parameters: z.object({ url: z.string().url().describe('http(s) URL') }),
@@ -53,7 +54,7 @@ const webFetchTool = tool({
   },
 });
 
-const webSearchTool = tool({
+const webSearchTool = defineTool({
   name: 'web_search',
   description: '联网搜索关键词，返回标题+链接列表（轻量，无需 key）。',
   parameters: z.object({ query: z.string().min(1).describe('搜索词') }),

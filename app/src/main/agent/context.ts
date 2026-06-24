@@ -33,6 +33,35 @@ export interface Workspace {
   root: string;
 }
 
+/** 单条工具执行日志（本地 JSONL 留存；失败时 status='error' + error 详情） */
+export interface ToolLogRecord {
+  /** ISO 时间戳 */
+  ts: string;
+  /** 工具名 */
+  tool: string;
+  /** ok=成功；error=抛错或约定的软失败（返回 { error } 字段） */
+  status: 'ok' | 'error';
+  /** 执行耗时（毫秒） */
+  durationMs: number;
+  /** 入参（已裁剪，防超长） */
+  input?: unknown;
+  /** 失败原因（message/stack 或软失败的 error 文案） */
+  error?: string;
+}
+
+/**
+ * 工具执行日志端口：所有工具经 defineTool 自动把每次执行（成功/失败）落到这里。
+ * 实现见 tool-logger.ts（写 userData/logs/*.jsonl）；测试可注入内存实现。
+ */
+export interface ToolLogger {
+  /** 日志目录（用于"打开日志目录"） */
+  readonly dir: string;
+  /** 追加一条记录；实现必须吞掉自身异常，绝不影响主流程 */
+  record(rec: ToolLogRecord): void;
+  /** 读取最近 N 条（倒序：最新在前），用于排查/展示 */
+  readRecent(limit?: number): ToolLogRecord[];
+}
+
 /** 每次 run 注入的上下文。时间统一由 Store 的 now 负责，故此处不再注入 now。 */
 export interface AgentContext {
   store: WorkmateStore;
@@ -44,6 +73,8 @@ export interface AgentContext {
   skills?: SkillsPort;
   /** 工作区（执行工具用；可选） */
   workspace?: Workspace;
+  /** 工具执行日志（可选：测试不注入则不落盘） */
+  toolLogger?: ToolLogger;
 }
 
 /** 提醒事项权限被拒错误（bridge 抛出，tool 捕获后口头引导） */

@@ -5,10 +5,11 @@
  */
 
 import { spawn } from 'node:child_process';
-import { tool, type RunContext, type Tool } from '@openai/agents-core';
+import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from '../context';
 import { getWorkspace, resolveInWorkspace } from '../workspace';
+import { defineTool } from './define';
 
 const DEFAULT_TIMEOUT = 120_000; // 2min
 const MAX_TIMEOUT = 180_000; // 3min
@@ -54,7 +55,7 @@ function runShell(command: string, cwd: string, timeout: number): Promise<RunRes
   });
 }
 
-const bashTool = tool({
+const bashTool = defineTool({
   name: 'bash',
   description: [
     '在工作区目录执行 shell 命令（最大权限，无沙箱）。',

@@ -14,7 +14,7 @@ import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
 import { useConfigStore } from '../../store/useConfigStore';
-import { testProvider } from '../../lib/api';
+import { openLogsDirectory, testProvider } from '../../lib/api';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
@@ -173,6 +173,24 @@ export function SettingsDialog({
             <p className="text-xs text-muted-foreground">傍晚 / 停滞 / 周五的轻量系统通知</p>
           </div>
           <Switch checked={nudgeEnabled} onCheckedChange={setNudgeEnabled} />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div>
+            <Label>工具执行日志</Label>
+            <p className="text-xs text-muted-foreground">
+              每次工具调用（含失败）都本地留存，排查问题时可查看
+            </p>
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void openLogsDirectory().catch(() => toast.error('打开日志目录失败'));
+            }}
+          >
+            打开日志目录
+          </Button>
         </div>
 
         <div className="flex justify-end gap-2">

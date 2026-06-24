@@ -6,10 +6,11 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { tool, type RunContext, type Tool } from '@openai/agents-core';
+import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from '../context';
 import { getWorkspace, resolveInWorkspace } from '../workspace';
+import { defineTool } from './define';
 
 const MAX_READ_BYTES = 256 * 1024;
 const MAX_LIST_ENTRIES = 500;
@@ -23,7 +24,7 @@ function trace(rc: RunContext<AgentContext> | undefined, tool: string, summary: 
   rc?.context?.trace.push({ tool, summary });
 }
 
-const readFileTool = tool({
+const readFileTool = defineTool({
   name: 'read_file',
   description: '读取工作区内（或绝对路径）文件内容。大文件按行截断。',
   parameters: z.object({
@@ -54,7 +55,7 @@ const readFileTool = tool({
   },
 });
 
-const writeFileTool = tool({
+const writeFileTool = defineTool({
   name: 'write_file',
   description: '写入/覆盖文件（缺失目录自动创建）。用于产出 HTML、文档等。',
   parameters: z.object({
@@ -70,7 +71,7 @@ const writeFileTool = tool({
   },
 });
 
-const editFileTool = tool({
+const editFileTool = defineTool({
   name: 'edit_file',
   description: '把文件中的 old 文本替换为 new 文本（old 必须唯一匹配）。',
   parameters: z.object({
@@ -91,7 +92,7 @@ const editFileTool = tool({
   },
 });
 
-const listDirTool = tool({
+const listDirTool = defineTool({
   name: 'list_dir',
   description: '列出目录内容（相对工作区或绝对路径）。',
   parameters: z.object({ path: z.string().default('.').describe('目录路径') }),
@@ -134,7 +135,7 @@ function globToRegExp(pattern: string): RegExp {
   return new RegExp(`^${esc}$`);
 }
 
-const globTool = tool({
+const globTool = defineTool({
   name: 'glob',
   description: '按 glob 模式匹配工作区文件名（如 **/*.html）。',
   parameters: z.object({
@@ -153,7 +154,7 @@ const globTool = tool({
   },
 });
 
-const grepTool = tool({
+const grepTool = defineTool({
   name: 'grep',
   description: '在工作区文件内容中检索正则/字符串，返回命中行。',
   parameters: z.object({
