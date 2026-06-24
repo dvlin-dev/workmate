@@ -3,6 +3,10 @@
   "version": "0.1.0",
   "description": "Workmate · 工作搭子 官网",
   "private": true,
+  "license": "MIT",
+  "author": "dvlin-dev",
+  "repository": { "type": "git", "url": "https://github.com/dvlin-dev/workmate.git" },
+  "homepage": "https://github.com/dvlin-dev/workmate",
   "type": "module",
   "packageManager": "pnpm@9.12.2",
   "scripts": {

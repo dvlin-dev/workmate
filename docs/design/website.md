@@ -12,16 +12,22 @@
 
 ## 2. 信息架构（单页落地，自上而下）
 
-采用 `homepage-sections.ts` 段落数组模式（段落顺序集中在一个常量里，组件按 id 映射）。
+段落顺序集中在 `App.tsx` 装配，各 `sections/*` 组件按序渲染（无 i18n、无路由）。
 
 | 段落 | 内容 | 要点 |
 |------|------|------|
-| `hero` | 大标题（含品牌渐变强调字）+ 副标题 + 主 CTA「下载 for macOS」+ App 截图 | OS 检测可选；截图用 `<picture>` AVIF/WebP；首屏 LCP 预加载 |
-| `problem` | 痛点三连：计划散落脑中 / 进展不被记录 / 周五全靠回忆 | 共情，短句 |
-| `how-it-works` | 三步：① 自然语言随手说 ② AI 结构化成周目标树 ③ 一键周报 + 写入提醒 | 配图或图标 |
+| `header` | 固定顶栏：Logo + 锚点导航（看演示/怎么用/能力）+ GitHub + 下载 | 滚动后毛玻璃描边；`scroll-padding-top` 防遮挡 |
+| `hero` | eyebrow 标签 + 品牌渐变强调大标题 + 副标题 + 双 CTA + 信任脚注 + CSS 拟真 App 截图（左对话/右看板） | 主 CTA 深色前景底；蓝色仅强调 |
+| `trust-strip` | 一行 4 个 credential：开源免费 / 数据本地 / BYOK / 无 key mock | lucide 图标，即时建立信任 |
+| `problem` | 痛点三连：计划在脑中 / 进展随手忘 / 周五硬回忆 | 共情，短句 |
+| `how-it-works` | 三步：① 随手说 ② 结构化+归因 ③ 一键周报+写提醒 | 渐变图标卡 + 序号 |
+| `demo` | **核心演示**：左对话流（订单服务 v2 重构一周）+ 右 sticky 看板（进度条入场填充）+ 底部四段式周报卡（可复制） | 静态数据来自 `lib/demo.ts`，忠实 demo-script.md |
 | `features` | 4 张 lucide 图标卡 | 见下 |
-| `download-cta` | 下载按钮（dmg）+ 版本号 + GitHub 链接 | 收尾再转化一次 |
-| `footer` | 版权 / 开源声明 / OneAPI token 说明链接 | 极简 |
+| `compare` | 诚实对比：传统 Todo/手写周报 vs Workmate（不点名竞品）+ 边界声明 | 右栏蓝色强调 |
+| `download-cta` | 收尾下载按钮 + GitHub + 免费/本地/macOS 声明 | 再转化一次 |
+| `footer` | 品牌 + 产品/开源链接组 + 版权 | 多列极简 |
+
+> 演示版块（`DemoShowcase`）是全站心脏：用「左对话 → 右看板被一步步维护出来 → 周五一键出周报」讲清"自然语言→结构化产物"的闭环。看板进度条用 `useInView` 在进入视口时从 0 填充到目标值（`motion-reduce` 下禁用过渡）。
 
 ### features 四卡（与桌面端 MVP 一一对应）
 
