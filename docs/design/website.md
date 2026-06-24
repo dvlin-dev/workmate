@@ -17,11 +17,11 @@
 | 段落 | 内容 | 要点 |
 |------|------|------|
 | `header` | 固定顶栏：Logo + 锚点导航（看演示/怎么用/能力）+ GitHub + 下载 | 滚动后毛玻璃描边；`scroll-padding-top` 防遮挡 |
-| `hero` | eyebrow 标签 + 品牌渐变强调大标题 + 副标题 + 双 CTA + 信任脚注 + CSS 拟真 App 截图（左对话/右看板） | 主 CTA 深色前景底；蓝色仅强调 |
-| `trust-strip` | 一行 4 个 credential：开源免费 / 数据本地 / BYOK / 无 key mock | lucide 图标，即时建立信任 |
+| `hero` | eyebrow 标签 + 品牌渐变强调大标题 + 副标题 + 双 CTA + 信任脚注 | 主 CTA 深色前景底；蓝色仅强调；不放产品截图，把演示让给 demo 段 |
+| `trust-strip` | 一行 4 个 credential：开源免费 / 数据本地 / 自带 Key / 无需注册 | lucide 图标，即时建立信任 |
+| `demo` | **核心演示，紧跟 Hero**：左对话流（订单服务 v2 重构一周）+ 右 sticky 看板（进度条入场填充）+ 底部四段式周报卡（可复制） | 静态数据来自 `lib/demo.ts`，忠实 demo-script.md；先给真实闭环、再讲痛点/原理 |
 | `problem` | 痛点三连：计划在脑中 / 进展随手忘 / 周五硬回忆 | 共情，短句 |
 | `how-it-works` | 三步：① 随手说 ② 结构化+归因 ③ 一键周报+写提醒 | 渐变图标卡 + 序号 |
-| `demo` | **核心演示**：左对话流（订单服务 v2 重构一周）+ 右 sticky 看板（进度条入场填充）+ 底部四段式周报卡（可复制） | 静态数据来自 `lib/demo.ts`，忠实 demo-script.md |
 | `features` | 4 张 lucide 图标卡 | 见下 |
 | `compare` | 诚实对比：传统 Todo/手写周报 vs Workmate（不点名竞品）+ 边界声明 | 右栏蓝色强调 |
 | `download-cta` | 收尾下载按钮 + GitHub + 免费/本地/macOS 声明 | 再转化一次 |

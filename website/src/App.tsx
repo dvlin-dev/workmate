@@ -16,9 +16,9 @@ export default function App() {
       <main>
         <Hero />
         <TrustStrip />
+        <DemoShowcase />
         <Problem />
         <HowItWorks />
-        <DemoShowcase />
         <Features />
         <Compare />
         <DownloadCTA />
