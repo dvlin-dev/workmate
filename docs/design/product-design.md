@@ -1,8 +1,13 @@
 # Workmate（工作搭子）设计文档
 
-> 版本：v1.0 ｜ 日期：2026-06-23
-> 状态：设计已确认，待实现
-> 本文档用于指导实现 agent 完成开发，要求自包含、可直接据此动工。
+> 状态：设计已确认（与产品负责人逐节通过），是**桌面端产品的唯一真相源**。
+> 本文聚焦"要做什么"。实现层"怎么做"的精确契约见 `docs/reference/*`：
+> - 精确 IPC 通道签名 → [`reference/ipc-contract.md`](../reference/ipc-contract.md)
+> - 各 Tool 的 JSON Schema、Provider 接口、loop 规格 → [`reference/agent-runtime.md`](../reference/agent-runtime.md)
+> - system prompt / 周报 prompt 完整文案 → [`reference/prompts.md`](../reference/prompts.md)
+> - 提醒事项 osascript 桥与权限/降级 → [`reference/reminders-bridge.md`](../reference/reminders-bridge.md)
+> - 设计 token / 组件约定 → [`reference/design-system.md`](../reference/design-system.md)
+> - 目录结构与构建配置 → [`reference/project-structure.md`](../reference/project-structure.md)
 
 ---
 
@@ -292,17 +297,21 @@ interface AppConfig {
 }
 ```
 
+> 具体默认值落在 `app/src/shared/config.ts`（zod schema + `z.infer<>` 派生 `AppConfig`，不另写平行 interface）：`baseURL='https://oneapi-comate.baidu-int.com/v1'`、`model='ernie-3.5-8k'`（可改占位）、`apiKey=''`、`nudge={enabled:true,eveningHour:18,stallHours:4}`。
+
 ### 9.2 Provider 抽象
+
+> **实现说明**：下面描述的是 provider 抽象的*意图*——可替换、默认 OneAPI、提供 mock、绝不硬编码密钥。**具体实现不再手写 `chat()`**，而是采用成熟栈：`@ai-sdk/openai-compatible` 的 `createOpenAICompatible({ baseURL, apiKey })` 构建模型，经 `aisdk()` 接入 `@openai/agents-core`；"无 key 的 MockProvider"由 AI SDK 的 `MockLanguageModelV3` 实现。权威实现见 [`../reference/agent-runtime.md`](../reference/agent-runtime.md)。下文的 `LLMProvider`/`OpenAICompatProvider`/`MockProvider` 命名仅表达概念意图，不是最终类名。
+
 ```typescript
+// 概念意图（非最终实现）：一个可替换、OpenAI 兼容、支持 function-calling 的模型层
 interface LLMProvider {
-  // messages 为 OpenAI 兼容格式；tools 为 function-calling 定义
-  // 返回可能含 tool_calls 或文本 content
   chat(messages: Message[], tools: ToolDef[]): Promise<ChatResult>;
 }
 ```
-- 默认实现 `OpenAICompatProvider`：走 OpenAI 兼容的 `/chat/completions`，支持 function calling。
+- 默认走 OpenAI 兼容协议、支持 function calling（由 `@ai-sdk/openai-compatible` 提供）。
 - **默认内置百度 OneAPI 的 baseURL**；apiKey 留空，首次启动引导用户去 `https://oneapi-comate.baidu-int.com/token` 获取并填入设置页。
-- 提供 `MockProvider`：返回预设的 tool_calls / 文本，供无 key 时跑通 UI 与单测。
+- 提供无 key 的 mock 模型（`MockLanguageModelV3`）：跑通 UI 与单测。
 - **绝不硬编码任何密钥**。baseURL 可在设置页修改，开源后换成任意 OpenAI 兼容服务即可。
 
 ### 9.3 设置页（UI）
@@ -332,11 +341,12 @@ interface LLMProvider {
 - 底部输入框：即"便利贴"自由输入入口，支持多行自然语言。发送后即时显示在对话流，并触发 agent。
 - 搭子的 tool 调用可选地以轻量提示展示（如"✓ 已更新登录联调到 60%"），增强"看得见 agent 在干活"的感觉。
 
-### 10.2 右栏：周目标看板
-- **本周目标**：每个 Goal 一行，带进度条（progress）和状态。
-- **今日聚焦**：今天相关的 Task 清单（带勾选展示，但勾选动作也可只读展示，主路径仍是对话驱动）。
+### 10.2 右栏：周目标看板（人机协作，可读可写）
+- **本周目标**：每个 Goal 一行，带进度条（progress）和状态；每个目标下可勾选待办、可手动「添加待办」。
+- **今日聚焦**：今天相关的 Task 清单，可手动勾选完成/取消。
+- **手动新建目标**：看板底部「新建目标」入口，人工也能直接建目标（与对话驱动并存）。
 - **一键生成周报**按钮：触发周报生成，弹窗展示 markdown + 复制按钮。
-- 看板数据完全来自主进程快照，每次 agent loop 结束自动刷新。
+- 看板数据来自主进程快照：agent loop 结束自动刷新；人工操作走 `board:*` IPC（mutate → 落 ProgressEvent → 广播 `snapshot:changed`），与对话同源、同样进周报原料。主路径仍是对话驱动，人工操作是补充（人机共同维护这棵周目标树）。
 
 ### 10.3 其他
 - 设置页（齿轮入口）：配置 LLM provider 与 nudge 开关。
@@ -345,6 +355,8 @@ interface LLMProvider {
 ---
 
 ## 11. 实现里程碑建议（供实现 agent 参考排期）
+
+> **执行权威以 [`../plan/milestones.md`](../plan/milestones.md) 为准**（已对齐 agents-core + AI SDK / electron-store / TanStack Start 的修订栈）。下面是原始排期建议，保留作背景；条目里的 `OpenAICompatProvider`/`MockProvider` 仅为概念命名（见 §9.2 实现说明）。
 
 一天工时下，建议按"先闭环、后加分"推进：
 
