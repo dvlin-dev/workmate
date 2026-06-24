@@ -12,3 +12,4 @@
 | [reminders-bridge.md](./reminders-bridge.md) | 提醒事项 osascript 桥行为规格、权限/降级（net-new） |
 | [engineering-standards.md](./engineering-standards.md) | 状态管理、命名、错误处理、测试分级 |
 | [branding.md](./branding.md) | 品牌与图标管线 |
+| [release.md](./release.md) | macOS 签名、公证、GitHub Release 发布流程 |

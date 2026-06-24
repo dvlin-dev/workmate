@@ -13,7 +13,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pack": "electron-vite build && electron-builder --dir",
-    "dist:mac": "electron-vite build && electron-builder --mac"
+    "dist:mac": "electron-vite build && electron-builder --mac",
+    "dist:mac:arm64": "electron-vite build && electron-builder --mac dmg zip --arm64 --publish never",
+    "dist:mac:x64": "electron-vite build && electron-builder --mac dmg zip --x64 --publish never",
+    "smoke:packaged": "node scripts/smoke-check-packaged-app.mjs --app-dir release/${npm_package_version} --require-package @openai/agents-core --require-package @openai/agents-extensions --require-package ai --require-package electron-store"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
@@ -55,6 +58,7 @@
   },
   "devDependencies": {
     "@ai-sdk/provider": "^3.0.8",
+    "@electron/asar": "^3.4.1",
     "@tailwindcss/vite": "^4.1.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

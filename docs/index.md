@@ -21,6 +21,7 @@
 | [reference/reminders-bridge.md](./reference/reminders-bridge.md) | 提醒事项 osascript 桥接、AppleScript、Info.plist/权限、幂等、降级 |
 | [reference/engineering-standards.md](./reference/engineering-standards.md) | Zustand+函数式 API、命名、错误处理与降级表、Zod、测试分级 |
 | [reference/branding.md](./reference/branding.md) | 品牌名/色/Logo、macOS app 图标管线（iconutil）、favicon/manifest |
+| [reference/release.md](./reference/release.md) | macOS 签名、公证、GitHub Release 发布流程 |
 
 ## plan — 执行清单
 
