@@ -183,6 +183,14 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.metadata.outputs.tag }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: pnpm install --frozen-lockfile --prefer-offline
+        working-directory: app
       - uses: actions/download-artifact@v4
         with:
           path: .artifacts
@@ -201,6 +209,12 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p .release-assets
+
+          node app/scripts/merge-update-yml.mjs \
+            --arm64-dir ".artifacts/darwin-arm64" \
+            --x64-dir ".artifacts/darwin-x64" \
+            --output-dir ".release-assets"
+
           for arch in darwin-arm64 darwin-x64; do
             find ".artifacts/${arch}" -maxdepth 1 -type f \( \
               -name '*.dmg' -o \
@@ -208,6 +222,8 @@ jobs:
               -name '*.blockmap' \
             \) -exec cp {} .release-assets/ \;
           done
+
+          test -f .release-assets/latest-mac.yml
 
           echo "Release assets:"
           ls -lh .release-assets/

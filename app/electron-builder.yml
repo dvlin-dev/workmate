@@ -6,6 +6,11 @@ files:
   - dist/**/*
   - package.json
   - node_modules/**/*
+electronUpdaterCompatibility: ">= 2.16"
+publish:
+  - provider: github
+    owner: dvlin-dev
+    repo: workmate
 mac:
   icon: build/icon.icns
   artifactName: ${productName}-${version}-${arch}.${ext}

@@ -12,6 +12,7 @@ import { registerIpc } from './ipc/register';
 import { startNudgeScheduler } from './nudge/scheduler';
 import { buildAppMenu } from './menu';
 import { createMainWindow, focusOrCreateMainWindow } from './window';
+import { createUpdateService } from './updater';
 
 function createReminderBridge(store: ReturnType<typeof createWorkmateStore>): ReminderBridge {
   // 仅 macOS 用 osascript 真实写入；其它平台降级 Mock，保证可跑、可测。
@@ -53,11 +54,17 @@ if (!app.requestSingleInstanceLock()) {
     const store = createWorkmateStore();
     const report = createReportService(store);
     const reminders = createReminderBridge(store);
+    const updates = createUpdateService();
 
     registerIpc({ store, reminders, report });
-    buildAppMenu();
+    buildAppMenu({
+      checkForUpdates: () => {
+        void updates.checkForUpdates({ interactive: true });
+      },
+    });
     startNudgeScheduler(store);
     await createMainWindow();
+    updates.startAutomaticChecks();
 
     app.on('activate', async () => {
       if (BrowserWindow.getAllWindows().length === 0) {

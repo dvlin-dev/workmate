@@ -57,6 +57,7 @@ app/
 | `@openai/agents-core` | `0.5.1` | Agent / `run()` / `tool()` |
 | `@openai/agents-extensions` | `0.5.1` | `aisdk()` 适配器 |
 | `electron-store` | `^11.0.2` | 单 JSON 持久化（userData，原子写） |
+| `electron-updater` | `^6.8.9` | macOS 自动更新（GitHub Release feed） |
 | `zod` | `4.3.6` | tool 入参 / config / DTO |
 | `zustand` | `^5.0.2` | 渲染层状态 |
 | `react` / `react-dom` | `^19.2` | UI |
@@ -67,7 +68,7 @@ app/
 
 > 设置表单**写轻量**（受控 state，不引入 react-hook-form + 表单注册表），故不引入 `react-hook-form`/`@hookform/resolvers`。三态「测试连接」按钮的 UX 自实现。
 
-**开发（devDependencies）**：`electron@^31.7.7`、`electron-vite@^2.2.0`、`electron-builder@^26.0.12`、`vite@^5.4.20`、`@vitejs/plugin-react-swc@^3.7.2`、`@tailwindcss/vite@^4.1.18`、`tailwindcss@^4.1.18`、`tw-animate-css@^1.4.0`、`typescript@~5.9.2`、`vitest@^2.1.8`、`jsdom`、`@types/{node,react,react-dom}`。
+**开发（devDependencies）**：`electron@^31.7.7`、`electron-vite@^2.2.0`、`electron-builder@^26.0.12`、`vite@^5.4.20`、`@vitejs/plugin-react-swc@^3.7.2`、`@tailwindcss/vite@^4.1.18`、`tailwindcss@^4.1.18`、`tw-animate-css@^1.4.0`、`typescript@~5.9.2`、`vitest@^2.1.8`、`js-yaml`、`jsdom`、`@types/{node,react,react-dom}`。
 
 **脚本**：`dev=electron-vite dev`、`build=electron-vite build`、`typecheck=tsc --noEmit`、`dist:mac=electron-vite build && electron-builder --mac`、`pack=…--dir`、`test=vitest run`。
 
@@ -92,6 +93,7 @@ app/
 ## 5. 打包与提醒事项权限（`electron-builder.yml`）
 
 - `appId: com.workmate.app`、`productName: Workmate`。
+- `publish`: GitHub provider（`dvlin-dev/workmate`），供 `electron-updater` 读取 GitHub Release feed。
 - `mac`: `category: public.app-category.productivity`、`icon: build/icon.icns`、`hardenedRuntime: true`、`entitlements/entitlementsInherit: build/entitlements.mac.plist`、`target: dmg+zip (arch: arm64,x64)`。
 - **不出** win/linux/nsis、dmg 背景图。
 - **`mac.extendInfo`（提醒事项必需）**：
@@ -123,4 +125,4 @@ website/
 
 ## 7. 明确不做（非目标）
 
-内部 workspace 依赖、`better-sqlite3`/`electron-rebuild`、重型 `index.ts`（菜单栏/全局快捷键/深链 OAuth/云同步/记忆索引/telegram/automations/vault watcher/single-instance）、`electron-updater`、OS 安全存储、Windows/Linux/NSIS 目标、DMG 背景图。
+内部 workspace 依赖、`better-sqlite3`/`electron-rebuild`、重型 `index.ts`（深链 OAuth/云同步/记忆索引/telegram/automations/vault watcher）、OS 安全存储、Windows/Linux/NSIS 目标、DMG 背景图。

@@ -6,7 +6,11 @@ import { app, Menu, type MenuItemConstructorOptions } from 'electron';
 import { CH } from '@shared/ipc';
 import { broadcastToAllWindows } from './ipc/shared';
 
-export function buildAppMenu(): void {
+type AppMenuOptions = {
+  checkForUpdates?: () => void;
+};
+
+export function buildAppMenu({ checkForUpdates }: AppMenuOptions = {}): void {
   const isMac = process.platform === 'darwin';
 
   const template: MenuItemConstructorOptions[] = [
@@ -21,6 +25,10 @@ export function buildAppMenu(): void {
                 label: '设置…',
                 accelerator: 'CmdOrCtrl+,',
                 click: () => broadcastToAllWindows(CH.menuOpenSettings, undefined),
+              },
+              {
+                label: '检查更新…',
+                click: () => checkForUpdates?.(),
               },
               { type: 'separator' as const },
               { role: 'hide' as const },
