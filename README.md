@@ -23,7 +23,7 @@ pnpm dev               # 起开发窗口（1280×800，左对话 / 右看板）
 > 若不想用 corepack，请确保全局 `pnpm` 为 9.x（pnpm 10+ 不再从 package.json 读 `pnpm.overrides`，会导致 `@openai/agents-core` 版本冲突）。
 
 - 首次启动若未配置 LLM key，会自动打开设置页引导。
-- **无 key 也能跑**：自动降级到本地 mock 模型，可演示完整 UI 闭环（归因较粗）。
+- 未配置 `apiKey` 时，发送消息会直接打开设置页；填写真实 LLM 配置后才开始归因和更新看板。
 
 ### 配置 LLM
 

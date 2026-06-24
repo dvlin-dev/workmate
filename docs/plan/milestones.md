@@ -6,7 +6,7 @@
 |---|--------|----------|---------------------------|------|----------|
 | **M1** | 脚手架 | `app/` Electron+electron-vite+TS+Tailwind v4；主/preload/renderer 三 bundle；globals.css + cn() + 拷入的 shadcn 组件；一个 `ping` IPC | `npm run dev` 起 1280×800 窗口，左右两栏空壳渲染，渲染层经 IPC 调主进程往返通；`npm run build` 通过 | build 通过 | project-structure.md、design-system.md |
 | **M2** | Store + 数据模型 | `shared/types.ts`；`electron-store` Store：CRUD、`appendEvent`、`weekOf` 周一锚、当前周 `Snapshot`、跨周新建 `WeeklyPlan` | store 单测全绿：读写/跨周/快照/事件不变量/`reminderId` 幂等占位 | `store.test` (L2) | agent-runtime.md §1、product-design.md §5 |
-| **M3** | 模型 + Agent + Tools（**核心闭环·上**） | `model.ts`（`createOpenAICompatible`+`aisdk`+无 key mock）；`tools.ts`（9 个 `tool()`+zod）；`agent.ts`（`new Agent`）；`orchestrator.ts`（`run(maxTurns:8)`）；system prompt | 无 key 下 `runTurn("这周要做完登录联调")` → 走 mock → 看板出现该目标；说"联调通了"→ `find_goal`+`update_progress` 改进度 | loop 测（`MockLanguageModelV3`）+ 各 `tool.execute` (L2) | agent-runtime.md、prompts.md |
+| **M3** | 模型 + Agent + Tools（**核心闭环·上**） | `model.ts`（`createOpenAICompatible`+`aisdk`+显式测试 mock）；`tools.ts`（9 个 `tool()`+zod）；`agent.ts`（`new Agent`）；`orchestrator.ts`（`run(maxTurns:8)`）；system prompt | 有 key 时 `runTurn("这周要做完登录联调")` → 看板出现该目标；说"联调通了"→ `find_goal`+`update_progress` 改进度；无 key 默认拒绝且不落事件 | loop 测（显式 `MockLanguageModelV3`）+ 各 `tool.execute` (L2) | agent-runtime.md、prompts.md |
 | **M4** | UI 主界面 + 设置页（**核心闭环·下**） | preload/`register.ts`；renderer stores（snapshot/chat/config）；ChatPanel+KanbanPanel（GoalCard/Progress/TodayFocus）；SettingsDialog（baseURL/apiKey/model + 测试连接）；快照订阅刷新 | **说话 → 看板动**：输入框发消息，左侧出气泡 + 工具提示，右侧进度条实时跳；设置页填 key 后 `testProvider` 成功 | 组件/状态 (L1) | ipc-contract.md、design-system.md §8、engineering-standards.md §1 |
 | **M5** | 周报生成（**demo 高潮**） | `report.ts`（原料组装 + `generateText` + 无 key 确定性降级）；`generate_report` tool + `report:generate` IPC；ReportDialog（react-markdown + 一键复制） | 点「一键生成周报」弹出四段式 markdown（完成/亮点/卡点/下周），可复制；无 key 也能出（降级模板） | 原料组装 + 降级模板 (L2) | prompts.md §2、agent-runtime.md §8 |
 | **M6** | 提醒事项写入 | `reminders/bridge.ts`（osascript+argv）+ `mock.ts`；`write_reminder` tool；`reminders:write` IPC；Info.plist 用途说明 + entitlements | 带 deadline 的待办经 agent 写入「提醒事项」的 Workmate 列表；二次写入幂等；拒权时优雅降级引导 | 幂等单测（Mock） (L2) | reminders-bridge.md |
@@ -21,4 +21,4 @@
 
 ## 跨里程碑硬约束（每步都回看）
 
-绝不硬编码密钥 · 无 key 自动 mock · 每次归因落 `ProgressEvent` · `weekOf` 周一锚 · `reminderId` 幂等 · `maxTurns:8` 兜底 · 进程职责分离 · 模型/Reminder 可 mock。详见根 `CLAUDE.md` 硬约束。
+绝不硬编码密钥 · 无 key 引导设置且不跑对话 mock · 每次归因落 `ProgressEvent` · `weekOf` 周一锚 · `reminderId` 幂等 · `maxTurns:8` 兜底 · 进程职责分离 · 模型/Reminder 可 mock。详见根 `CLAUDE.md` 硬约束。

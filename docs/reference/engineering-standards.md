@@ -44,7 +44,7 @@ workmate 三个 store（`store/`）：
 |------|------|------|-----------|
 | LLM 超时 | `AbortSignal.timeout` / 60s | `LLM_TIMEOUT` | 对话区行内提示"搭子有点忙，稍后再试"；保留用户输入；那条录入事件已落流，不丢 |
 | LLM 报错 | HTTP 4xx/5xx、网络错 | `LLM_ERROR` | 行内提示"LLM 暂时不可用，检查 设置 里的 baseURL/apiKey/model"；引导去设置页 |
-| 无 key | `apiKey` 为空 | —（不报错） | 自动用 mock 模型，UI 闭环可演示；设置页顶部常驻"填入 apiKey 解锁真实归因"提示 |
+| 无 key | `apiKey` 为空 | `CONFIG_REQUIRED` | 发送消息前直接打开设置页；主进程兜底拒绝运行 agent，不落事件、不走 mock |
 | 提醒事项权限被拒 | osascript `-1743` | `REMINDER_PERMISSION_DENIED` | agent 口头引导去 系统设置→隐私与安全性→自动化/提醒事项 授权后重试；不崩溃 |
 | 提醒事项其他失败 | osascript 非零退出 | `REMINDER_FAILED` | 提示"写入提醒事项失败，稍后重试"；目标/进度照常更新 |
 | tool loop 失控 | 反复调 tool 不收敛 | —（兜底） | `maxTurns: 8` 收敛；可选 doom-loop 同参去重；超限返回兜底文案 |
@@ -60,7 +60,7 @@ workmate 三个 store（`store/`）：
 
 ### 必写单测（对齐 DESIGN §12）
 
-1. **Agent loop**：用 `MockLanguageModelV3` 脚本化"先 tool-call 再文本"，断言 tool 被执行、进度流落事件、`maxTurns` 生效、`finalOutput` 正确。亦可直接 `tool.execute(input, { context })` 测每个 tool（更快更稳）。
+1. **Agent loop**：用 `MockLanguageModelV3` 显式脚本化"先 tool-call 再文本"，断言 tool 被执行、进度流落事件、`maxTurns` 生效、`finalOutput` 正确；另测默认无 key 会拒绝且不落事件。亦可直接 `tool.execute(input, { context })` 测每个 tool（更快更稳）。
 2. **Store**：JSON 读写、跨周新建 `WeeklyPlan`、当前周快照计算、`appendEvent` 不变量。
 3. **周报原料组装**：给定 goals+events，断言 `material` 结构正确；mock 模型下断言确定性 markdown 四段齐全。
 4. **ReminderBridge 幂等**：同一 task 连续写两次，只创建一次、返回同一 id（用 `MockReminderBridge`）。

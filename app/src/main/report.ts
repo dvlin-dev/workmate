@@ -64,7 +64,7 @@ function assembleMaterial(week: WeeklyPlan): ReportMaterial {
   };
 }
 
-/** 无 key / 失败时的确定性 markdown（保证演示与单测稳定） */
+/** 无 key / 失败时的确定性 markdown（不使用对话 mock，保证单测稳定） */
 export function deterministicReport(material: ReportMaterial): string {
   const lines: string[] = [`# 本周周报（${material.rangeLabel}）`, ''];
 

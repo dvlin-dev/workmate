@@ -85,9 +85,9 @@
 - …
 ```
 
-### 2.5 无 key（mock 模型）降级模板（无 key 也能出周报、可单测）
+### 2.5 周报确定性降级模板
 
-`report.ts` 在无 key（mock 模型）或 LLM 失败时，**不调 LLM**，直接用原料拼一份确定性 markdown：完成段列 `status==='done'` 或 `done===true` 项；亮点段列 `progress>=50` 的目标；卡点段列本周无相关事件的 active 目标；下周段列未完成项。保证演示与单测稳定。
+`report.ts` 在无 key 或 LLM 失败时，**不调 LLM**，直接用原料拼一份确定性 markdown：完成段列 `status==='done'` 或 `done===true` 项；亮点段列 `progress>=50` 的目标；卡点段列本周无相关事件的 active 目标；下周段列未完成项。该降级不使用对话 mock 模型，主要保证周报与单测稳定。
 
 ## 3. Nudge 文案（`nudge/scheduler.ts`，固定模板，不调 LLM）
 

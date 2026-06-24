@@ -55,7 +55,7 @@ export default function App() {
       </header>
 
       <main className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
-        <ChatPanel />
+        <ChatPanel onRequireConfig={() => setSettingsOpen(true)} />
         <KanbanPanel />
       </main>
 

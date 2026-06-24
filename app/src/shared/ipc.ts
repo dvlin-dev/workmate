@@ -31,6 +31,7 @@ export const CH = {
 export type AppErrorCode =
   | 'LLM_TIMEOUT'
   | 'LLM_ERROR'
+  | 'CONFIG_REQUIRED'
   | 'REMINDER_PERMISSION_DENIED'
   | 'REMINDER_FAILED'
   | 'NOT_FOUND'

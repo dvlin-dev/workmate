@@ -91,7 +91,7 @@ export function SettingsDialog({
   };
 
   const noKey = !apiKey.trim();
-  const canSave = !!config && !saving;
+  const canSave = !!config && !saving && !!baseURL.trim() && !!model.trim() && !noKey;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,7 +105,7 @@ export function SettingsDialog({
 
         {noKey && (
           <div className="rounded-lg bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
-            未配置 apiKey，当前使用本地 mock 模型（可演示，但归因较粗）。填入 key 解锁真实归因。
+            未配置 apiKey。发送消息前需要先填写真实 LLM 配置，搭子会用真实模型完成归因与更新看板。
           </div>
         )}
 

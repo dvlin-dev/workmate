@@ -10,11 +10,15 @@ import { buildModel } from './model';
 import { buildSystemPrompt } from './prompt';
 import { createWorkmateTools } from './tools';
 
-export function buildAgent(config: AppConfig, snapshot: Snapshot): Agent<AgentContext> {
+export function buildAgent(
+  config: AppConfig,
+  snapshot: Snapshot,
+  options: { allowMockModel?: boolean } = {}
+): Agent<AgentContext> {
   return new Agent<AgentContext>({
     name: 'Workmate',
     instructions: buildSystemPrompt(snapshot),
-    model: buildModel(config),
+    model: buildModel(config, options),
     tools: createWorkmateTools(),
   });
 }

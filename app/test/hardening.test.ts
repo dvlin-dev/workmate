@@ -42,7 +42,7 @@ describe('config schema · 拒绝空 baseURL/model', () => {
     expect(store.getConfig().llm.model.length).toBeGreaterThan(0);
   });
 
-  it('setConfig 允许空 apiKey（走 mock）', () => {
+  it('setConfig 允许保存空 apiKey（发送消息时要求先配置）', () => {
     const store = new WorkmateStore({ initial: createEmptyData(), now });
     const cfg = store.setConfig({ llm: { apiKey: '' } });
     expect(cfg.llm.apiKey).toBe('');

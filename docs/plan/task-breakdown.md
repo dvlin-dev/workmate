@@ -21,12 +21,12 @@
 
 ## M3 · 模型 + Agent + Tools（核心闭环·上）
 
-- [x] **T3.1** `src/main/agent/model.ts`：`buildModel(config)` 有 key→`aisdk(createOpenAICompatible({name,apiKey,baseURL})(model))`；无 key→`aisdk(createMockChatModel())`。Mock（`mock-model.ts`）用 `MockLanguageModelV3`（`ai/test`）按 prompt 状态驱动闭环（计划→create_goal；进展→find_goal→update_progress；周报→generate_report；tool 结果回来→收尾文案）+ `createScriptedModel` 供测试。
+- [x] **T3.1** `src/main/agent/model.ts`：`buildModel(config,{allowMockModel})` 有 key→`aisdk(createOpenAICompatible({name,apiKey,baseURL})(model))`；无 key默认抛 `MissingApiKeyError`；显式测试 mock→`aisdk(createMockChatModel())`。Mock（`mock-model.ts`）用 `MockLanguageModelV3`（`ai/test`）按 prompt 状态驱动闭环（计划→create_goal；进展→find_goal→update_progress；周报→generate_report；tool 结果回来→收尾文案）+ `createScriptedModel` 供测试。
 - [x] **T3.2** `src/main/agent/tools.ts`：`createWorkmateTools()` 9 个 `tool()`+zod；`execute(input, rc)` 经 `rc.context`（`AgentContext`）用 Store/Reminder/Report 并 `trace.push`。端口 `AgentContext`/`ReminderBridge`/`ReportService`/`ReminderPermissionError` 定义在 `agent/context.ts`。`write_reminder` 失败不抛、返回 `{error,needsPermission}`。
 - [x] **T3.3** `src/main/agent/prompt.ts`：`buildSystemPrompt(snapshot)`（注入 today/weekday/weekOf/snapshotJson）。
 - [x] **T3.4** `src/main/agent/{agent,orchestrator}.ts`：`buildAgent(config,snapshot)` + `runTurn(text,deps)` = 落 note 原始事件 → `run(agent,[user(text)],{maxTurns:8,context})` → `{reply:result.finalOutput, snapshot, toolTrace}`。
 - [x] **T3.5** 单测：`agent-loop.test.ts`（4 例，heuristic mock 经真实 agents-core 端到端跑闭环）+ `tools.test.ts`（6 例，`tool.invoke` 覆盖全部工具含 write_reminder 权限拒绝）+ `reminders/mock.ts`。`store.findGoals` 改宽松 2-gram 匹配以适配中文口语 query。
-- [x] **DoD**：无 key 下 `runTurn` 建目标/归因改 Store ✓；23 测试全绿；typecheck + build 通过。**安装坑**：见 project-structure.md §3 的 `overrides`。
+- [x] **DoD**：显式测试 mock 下 `runTurn` 建目标/归因改 Store ✓；默认无 key 拒绝且不落事件；测试全绿；typecheck + build 通过。**安装坑**：见 project-structure.md §3 的 `overrides`。
 
 ## M4 · UI 主界面 + 设置页（核心闭环·下）
 
@@ -34,7 +34,7 @@
 - [x] **T4.2** `lib/api.ts`（函数式 + `unwrap` + `ApiError(code)`）+ stores：`useSnapshotStore`（hydrate+subscribe，原子 selector）、`useChatStore`（乐观气泡 + pending + 错误降级文案）、`useConfigStore`。
 - [x] **T4.3** 左栏 `components/chat/`：`ChatPanel`（ScrollArea + Textarea + ⌘/Ctrl+Enter + 自动滚底 + 空态）、`MessageBubble`（用户/搭子气泡自写两个 div，搭子用 `ui/markdown.tsx`=react-markdown+remark-gfm 组件覆盖样式）、`ToolHint`（~20 行 map toolTrace）。**自写聊天输入**（不引入复杂的附件管线，design-system §7 准许自写）。
 - [x] **T4.4** 右栏 `components/kanban/`：`KanbanPanel`（订阅 snapshot 实时刷新）/`GoalCard`（Card+Progress[指示器改 `bg-success`]+`StatusBadge`）/`TodayFocus`/`ReportButton`（`report/ReportDialog.tsx`）。
-- [x] **T4.5** `components/settings/SettingsDialog.tsx`：baseURL/apiKey/model + 内联三态 **测试连接** 按钮（Loader/CircleCheck/CircleX，走 `config:testProvider`）+ Nudge 开关 + 首启无 key 引导/横幅。**自实现轻量表单**（受控 state，不引入 RHF+model-bank；故移除未用的 `react-hook-form`/`@hookform/resolvers`）。
+- [x] **T4.5** `components/settings/SettingsDialog.tsx`：baseURL/apiKey/model + 内联三态 **测试连接** 按钮（Loader/CircleCheck/CircleX，走 `config:testProvider`）+ Nudge 开关 + 首启/发送时无 key 引导与横幅。**自实现轻量表单**（受控 state，不引入 RHF+model-bank；故移除未用的 `react-hook-form`/`@hookform/resolvers`）。
 - [x] **DoD**：IPC 全链路打通、`runTurn`→广播→看板订阅刷新；typecheck + build + 23 测试通过。（GUI「说话→看板动」需真机运行 `npm run dev`，逻辑链路已验证。）
 
 ## M5 · 周报生成（demo 高潮）

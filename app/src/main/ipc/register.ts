@@ -7,7 +7,7 @@ import { app, ipcMain } from 'electron';
 import { generateText } from 'ai';
 import { CH } from '@shared/ipc';
 import type { AppResult, SendMessageResult } from '@shared/ipc';
-import type { AppConfig } from '@shared/config';
+import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot } from '@shared/types';
 import type { WorkmateStore } from '../store';
 import type { ReminderBridge, ReportService } from '../agent/context';
@@ -53,6 +53,9 @@ export function registerIpc(deps: IpcDeps): void {
   ipcMain.handle(CH.agentSendMessage, async (e, payload): Promise<AppResult<SendMessageResult>> => {
     const text = String(asObjectRecord(payload).text ?? '').trim();
     if (!text) return fail('BAD_INPUT', '消息不能为空');
+    if (!hasApiKey(store.getConfig())) {
+      return fail('CONFIG_REQUIRED', '请先在设置里填写 apiKey，再发送消息。');
+    }
 
     const controller = new AbortController();
     currentController = controller;

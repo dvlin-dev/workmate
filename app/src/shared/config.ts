@@ -14,7 +14,7 @@ export const ONEAPI_TOKEN_URL = 'https://oneapi-comate.baidu-int.com/token';
 
 export const LlmConfigSchema = z.object({
   baseURL: z.string().min(1, 'baseURL 不能为空').default(DEFAULT_BASE_URL),
-  apiKey: z.string().default(''), // 允许为空：留空走本地 mock 模型
+  apiKey: z.string().default(''), // 允许为空保存；发送对话前会要求用户填写真实 key
   model: z.string().min(1, 'model 不能为空').default(DEFAULT_MODEL),
 });
 
@@ -38,7 +38,7 @@ export type AppConfig = z.infer<typeof AppConfigSchema>;
 /** 全量默认配置 */
 export const DEFAULT_CONFIG: AppConfig = AppConfigSchema.parse({});
 
-/** 是否已配置可用的 apiKey（决定走真实模型还是 mock） */
+/** 是否已配置可用的 apiKey（决定是否允许发起真实 LLM 对话） */
 export function hasApiKey(config: AppConfig): boolean {
   return config.llm.apiKey.trim().length > 0;
 }

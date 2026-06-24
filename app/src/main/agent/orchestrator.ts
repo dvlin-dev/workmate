@@ -5,11 +5,12 @@
  */
 
 import { run, user, MaxTurnsExceededError } from '@openai/agents-core';
-import type { AppConfig } from '@shared/config';
+import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot, ToolTraceItem } from '@shared/types';
 import type { WorkmateStore } from '../store';
 import type { AgentContext, ReminderBridge, ReportService } from './context';
 import { buildAgent } from './agent';
+import { MissingApiKeyError } from './model';
 
 export const MAX_TURNS = 8;
 /** 主对话单轮超时；超时让 agents-core 抛 AbortError，IPC 层映射为 LLM_TIMEOUT */
@@ -23,6 +24,8 @@ export interface RunTurnDeps {
   report: ReportService;
   /** 不传则取 store.getConfig() */
   config?: AppConfig;
+  /** 仅供单测显式使用确定性 mock；运行时不传 */
+  allowMockModel?: boolean;
 }
 
 export interface RunTurnResult {
@@ -39,12 +42,15 @@ export type StreamEvent =
 function prepare(text: string, deps: RunTurnDeps) {
   const { store, reminders, report } = deps;
   const config = deps.config ?? store.getConfig();
+  if (!hasApiKey(config) && !deps.allowMockModel) {
+    throw new MissingApiKeyError();
+  }
   // 录入即落原始事件（周报原料的一部分；即使 agent 失败也不丢）
   store.appendEvent({ kind: 'note', rawText: text, summary: text });
   const snapshot = store.getSnapshot();
   const trace: ToolTraceItem[] = [];
   const context: AgentContext = { store, reminders, report, trace };
-  const agent = buildAgent(config, snapshot);
+  const agent = buildAgent(config, snapshot, { allowMockModel: deps.allowMockModel });
   return { store, agent, trace, context };
 }
 

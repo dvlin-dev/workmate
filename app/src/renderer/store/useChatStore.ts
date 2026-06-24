@@ -56,6 +56,8 @@ export const useChatStore = create<ChatState>((set, get) => {
       const errorText =
         error instanceof ApiError && error.code === 'LLM_TIMEOUT'
           ? '搭子有点忙（响应超时），稍后再试～'
+          : error instanceof ApiError && error.code === 'CONFIG_REQUIRED'
+            ? '请先在「设置」里填写 apiKey，再发送消息。'
           : error instanceof ApiError && error.code === 'LLM_ERROR'
             ? 'LLM 暂时不可用，去「设置」检查 baseURL / apiKey / model。'
             : `出错了：${error instanceof Error ? error.message : '未知错误'}`;

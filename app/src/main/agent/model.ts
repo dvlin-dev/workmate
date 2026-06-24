@@ -1,5 +1,5 @@
 /**
- * 模型构建：有 key → OneAPI(OpenAI 兼容)；无 key → 确定性 mock。
+ * 模型构建：默认只走用户配置的 OpenAI 兼容端点；测试可显式允许确定性 mock。
  * 主干：createOpenAICompatible → aisdk（单 provider、无 thinking 矩阵）。
  */
 
@@ -8,10 +8,21 @@ import { aisdk } from '@openai/agents-extensions';
 import { hasApiKey, type AppConfig } from '@shared/config';
 import { createMockChatModel } from './mock-model';
 
-/** 返回 agents-core 可用的模型（aisdk 包装）。apiKey 为空自动降级 mock。 */
-export function buildModel(config: AppConfig): ReturnType<typeof aisdk> {
+export class MissingApiKeyError extends Error {
+  constructor() {
+    super('请先配置 apiKey');
+    this.name = 'MissingApiKeyError';
+  }
+}
+
+/** 返回 agents-core 可用的模型（aisdk 包装）。apiKey 为空时只允许测试显式启用 mock。 */
+export function buildModel(
+  config: AppConfig,
+  options: { allowMockModel?: boolean } = {}
+): ReturnType<typeof aisdk> {
   if (!hasApiKey(config)) {
-    return aisdk(createMockChatModel());
+    if (options.allowMockModel) return aisdk(createMockChatModel());
+    throw new MissingApiKeyError();
   }
   return aisdk(buildRawModel(config.llm));
 }

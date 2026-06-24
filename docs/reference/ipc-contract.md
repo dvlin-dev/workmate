@@ -10,6 +10,7 @@
 type AppResult<T> = { ok: true; data: T } | { ok: false; error: { code: AppErrorCode; message: string } }
 type AppErrorCode =
   | 'LLM_TIMEOUT' | 'LLM_ERROR'
+  | 'CONFIG_REQUIRED'
   | 'REMINDER_PERMISSION_DENIED' | 'REMINDER_FAILED'
   | 'NOT_FOUND' | 'BAD_INPUT' | 'INTERNAL'
 ```
@@ -21,7 +22,7 @@ type AppErrorCode =
 | 通道 | 类型 | 入参 | 返回 |
 |------|------|------|------|
 | `app:ping` | invoke | — | `AppResult<{ pong: true; version: string }>`（健康检查） |
-| `agent:sendMessage` | invoke | `{ text: string }` | `AppResult<SendMessageResult>`（结束时 resolve；期间流式发 `agent:chunk`；超时→`LLM_TIMEOUT`） |
+| `agent:sendMessage` | invoke | `{ text: string }` | `AppResult<SendMessageResult>`（结束时 resolve；期间流式发 `agent:chunk`；超时→`LLM_TIMEOUT`；无 key→`CONFIG_REQUIRED`） |
 | `agent:chunk` | event(主→渲染，仅发起窗口) | — | `AgentChunk`（逐字 `text` / 工具足迹 `tool` 增量） |
 | `agent:cancel` | invoke | — | `AppResult<{ cancelled: boolean }>`（中断当前轮，保留已收到部分） |
 | `menu:open-settings` | event(主→渲染) | — | —（菜单「设置…」⌘, 触发，渲染层打开设置弹窗） |
@@ -75,7 +76,7 @@ interface WorkmateApi {
 
 - **preload**：`invoke` 通道 = `ipcRenderer.invoke(CH.x, payload)`；事件通道 = `ipcRenderer.on(CH.x, listener)` 并**返回退订函数**（`removeListener`）。
 - **主进程注册**：每个 `ipcMain.handle` 用 `asObjectRecord` 守卫 payload，成功 `ok(data)`、失败 `fail(code,msg)`。
-  - `agent:sendMessage` → 校验非空 → `runTurn(text)`（agents-core `run(maxTurns:8)`，见 agent-runtime.md）→ `broadcast(CH.snapshotChanged, result.snapshot)` → `ok(result)`；异常转 `LLM_*`。
+  - `agent:sendMessage` → 校验非空与 `apiKey`；无 key 返回 `CONFIG_REQUIRED`（渲染层会打开设置）→ 有 key 后 `runTurn(text)`（agents-core `run(maxTurns:8)`，见 agent-runtime.md）→ `broadcast(CH.snapshotChanged, result.snapshot)` → `ok(result)`；异常转 `LLM_*`。
   - `config:testProvider` → 用当前 config 构建模型跑 `generateText({model, prompt:'Say "Test successful"'})`。
   - `reminders:write` → `reminders.writeReminderById(taskId)`；捕获 `-1743/not authorized` → `REMINDER_PERMISSION_DENIED`，其余 → `REMINDER_FAILED`。
 - **渲染层 `lib/api.ts`**：把 `window.workmateAPI` 包成**函数式导出**（`sendMessage`/`getSnapshot`/`onSnapshot`/`generateReport`/`getConfig`/`setConfig`/`testProvider`/`writeReminder`），内部 `unwrap(AppResult)`（`!ok` 抛带 `code` 的 Error）。组件不直接碰 `window.workmateAPI`（见 engineering-standards.md §1）。

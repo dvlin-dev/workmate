@@ -1,11 +1,11 @@
 /**
- * 无 key 降级用的确定性 mock 模型（基于 AI SDK MockLanguageModelV3）。
+ * 单测显式启用的确定性 mock 模型（基于 AI SDK MockLanguageModelV3）。
  * 通过读 prompt 消息驱动一个可信的 tool-calling 闭环：
  *   - 计划类输入 → create_goal
  *   - 进展类输入 → find_goal → update_progress
  *   - 周报      → generate_report
  *   - tool 结果回来后 → 一句口语化收尾
- * 仅用于现场无 key 的演示与单测，不替代真实模型。
+ * 仅用于自动化测试，不作为用户运行时的无 key 兜底。
  */
 
 import { randomUUID } from 'node:crypto';
@@ -165,7 +165,7 @@ function resultToStreamParts(result: LanguageModelV3GenerateResult): LanguageMod
   return parts;
 }
 
-/** 创建运行时无 key 用的 mock 模型（doGenerate + doStream，支持流式） */
+/** 创建显式测试用的 mock 模型（doGenerate + doStream，支持流式） */
 export function createMockChatModel(): MockLanguageModelV3 {
   return new MockLanguageModelV3({
     modelId: 'workmate-mock',

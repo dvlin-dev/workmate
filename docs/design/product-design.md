@@ -91,7 +91,7 @@ Electron 双进程，职责严格分离：
 | 模块 | 位置 | 职责 | 依赖 |
 |------|------|------|------|
 | `AgentOrchestrator` | 主进程 | 接收用户消息 + 目标快照，跑 tool-calling loop，产出回复 | LLM Provider、Tools、Store |
-| `LLMProvider` | 主进程 | 封装 `chat(messages, tools)`，走 OpenAI 兼容协议；提供 `MockProvider` 用于无 key 调试 | 无（仅 HTTP） |
+| `LLMProvider` | 主进程 | 封装 `chat(messages, tools)`，走 OpenAI 兼容协议；提供显式测试 mock | 无（仅 HTTP） |
 | `Tools` | 主进程 | 一组目标管理函数，供 agent 调用（见第 6 节） | Store、ReminderBridge |
 | `Store` | 主进程 | 读写本地 JSON，提供目标/事件的 CRUD 与"当前周快照" | 文件系统 |
 | `ReminderBridge` | 主进程 | 通过 osascript 写入提醒事项，回填 reminderId 做幂等 | osascript |
@@ -301,7 +301,7 @@ interface AppConfig {
 
 ### 9.2 Provider 抽象
 
-> **实现说明**：下面描述的是 provider 抽象的*意图*——可替换、默认 OneAPI、提供 mock、绝不硬编码密钥。**具体实现不再手写 `chat()`**，而是采用成熟栈：`@ai-sdk/openai-compatible` 的 `createOpenAICompatible({ baseURL, apiKey })` 构建模型，经 `aisdk()` 接入 `@openai/agents-core`；"无 key 的 MockProvider"由 AI SDK 的 `MockLanguageModelV3` 实现。权威实现见 [`../reference/agent-runtime.md`](../reference/agent-runtime.md)。下文的 `LLMProvider`/`OpenAICompatProvider`/`MockProvider` 命名仅表达概念意图，不是最终类名。
+> **实现说明**：下面描述的是 provider 抽象的*意图*——可替换、默认 OneAPI、测试可 mock、绝不硬编码密钥。**具体实现不再手写 `chat()`**，而是采用成熟栈：`@ai-sdk/openai-compatible` 的 `createOpenAICompatible({ baseURL, apiKey })` 构建模型，经 `aisdk()` 接入 `@openai/agents-core`；测试 mock 由 AI SDK 的 `MockLanguageModelV3` 显式启用。权威实现见 [`../reference/agent-runtime.md`](../reference/agent-runtime.md)。下文的 `LLMProvider`/`OpenAICompatProvider`/`MockProvider` 命名仅表达概念意图，不是最终类名。
 
 ```typescript
 // 概念意图（非最终实现）：一个可替换、OpenAI 兼容、支持 function-calling 的模型层
@@ -310,12 +310,12 @@ interface LLMProvider {
 }
 ```
 - 默认走 OpenAI 兼容协议、支持 function calling（由 `@ai-sdk/openai-compatible` 提供）。
-- **默认内置百度 OneAPI 的 baseURL**；apiKey 留空，首次启动引导用户去 `https://oneapi-comate.baidu-int.com/token` 获取并填入设置页。
-- 提供无 key 的 mock 模型（`MockLanguageModelV3`）：跑通 UI 与单测。
+- **默认内置百度 OneAPI 的 baseURL**；apiKey 留空时，首次启动与发送消息都会引导用户填写设置，运行时不走 mock。
+- 提供显式测试 mock（`MockLanguageModelV3`）：跑通 Agent 单测，不作为用户运行时兜底。
 - **绝不硬编码任何密钥**。baseURL 可在设置页修改，开源后换成任意 OpenAI 兼容服务即可。
 
 ### 9.3 设置页（UI）
-首次启动若无 apiKey，引导进入设置页：填 baseURL（已预填百度）、apiKey、model。附一句"去 https://oneapi-comate.baidu-int.com/token 获取 token"。
+首次启动若无 apiKey，引导进入设置页：填 baseURL（已预填默认）、apiKey、model。发送消息时若仍无 apiKey，直接弹起设置页，不创建对话消息、不调用 agent。
 
 ---
 
@@ -395,7 +395,7 @@ interface LLMProvider {
 | 提醒事项权限 | 首次 osascript 写入触发授权弹窗，拒绝则失败 | 优雅降级 + 文案引导授权 |
 | LLM 归因不准 | 进展归错目标 | system prompt 要求不确定时反问；find_goal 返回空时不硬归因 |
 | tool loop 失控 | LLM 反复调 tool 不收敛 | 设循环上限（如 8 轮）并兜底返回 |
-| 无 key 阻塞 | 现场没配 key 无法演示 | MockProvider 兜底，可跑通 UI |
+| 无 key 阻塞 | 现场没配 key 无法使用真实归因 | 首启与发送时引导填写设置；测试 mock 仅用于自动化测试 |
 | 内网/外网差异 | 默认百度 OneAPI 仅内网可用 | baseURL 可配置，开源后可换 |
 | 跨周边界 | 周一切换周导致数据归属混乱 | weekOf 以周一为锚，统一计算当前周 |
 

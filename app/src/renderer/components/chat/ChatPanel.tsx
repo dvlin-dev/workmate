@@ -3,6 +3,7 @@ import { ArrowUp, Square } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { useChatStore } from '../../store/useChatStore';
+import { useConfigStore } from '../../store/useConfigStore';
 import { MessageBubble } from './MessageBubble';
 
 const SUGGESTIONS = [
@@ -41,11 +42,12 @@ function EmptyHint({ onPick, disabled }: { onPick: (s: string) => void; disabled
   );
 }
 
-export function ChatPanel() {
+export function ChatPanel({ onRequireConfig }: { onRequireConfig?: () => void }) {
   const messages = useChatStore((s) => s.messages);
   const sending = useChatStore((s) => s.sending);
   const send = useChatStore((s) => s.send);
   const cancel = useChatStore((s) => s.cancel);
+  const config = useConfigStore((s) => s.config);
   const [draft, setDraft] = useState('');
   const viewportRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -68,6 +70,10 @@ export function ChatPanel() {
   const submit = (text: string) => {
     const value = text.trim();
     if (!value || sending) return;
+    if (!config?.llm.apiKey.trim()) {
+      onRequireConfig?.();
+      return;
+    }
     setDraft('');
     stickToBottom.current = true;
     void send(value);

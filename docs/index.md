@@ -16,7 +16,7 @@
 | [reference/design-system.md](./reference/design-system.md) | Token 取值（颜色/圆角/阴影/动效）+ macOS 质感规范 + 组件约定 |
 | [reference/project-structure.md](./reference/project-structure.md) | 目录结构、依赖版本、`electron.vite.config`、`electron-builder.yml`、tsconfig、官网脚手架 |
 | [reference/ipc-contract.md](./reference/ipc-contract.md) | `WorkmateApi` 接口、全部 IPC 通道签名、preload/contextBridge、结果信封 |
-| [reference/agent-runtime.md](./reference/agent-runtime.md) | agents-core + AI SDK 运行时、模型构建、各 Tool（zod `tool()`）、`run(maxTurns:8)`、无 key mock |
+| [reference/agent-runtime.md](./reference/agent-runtime.md) | agents-core + AI SDK 运行时、模型构建、各 Tool（zod `tool()`）、`run(maxTurns:8)`、显式测试 mock |
 | [reference/prompts.md](./reference/prompts.md) | system prompt 完整草稿、周报 prompt 模板与 markdown 结构、nudge 文案模板 |
 | [reference/reminders-bridge.md](./reference/reminders-bridge.md) | 提醒事项 osascript 桥接、AppleScript、Info.plist/权限、幂等、降级 |
 | [reference/engineering-standards.md](./reference/engineering-standards.md) | Zustand+函数式 API、命名、错误处理与降级表、Zod、测试分级 |
