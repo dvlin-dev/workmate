@@ -10,8 +10,14 @@ import type { Snapshot } from '../shared/types';
 
 const api: WorkmateApi = {
   ping: () => ipcRenderer.invoke(CH.ping),
+  onOpenSettings: (handler) => {
+    const listener = () => handler();
+    ipcRenderer.on(CH.menuOpenSettings, listener);
+    return () => ipcRenderer.removeListener(CH.menuOpenSettings, listener);
+  },
   agent: {
     sendMessage: (text) => ipcRenderer.invoke(CH.agentSendMessage, { text }),
+    cancel: () => ipcRenderer.invoke(CH.agentCancel),
     onChunk: (handler) => {
       const listener = (_event: Electron.IpcRendererEvent, chunk: AgentChunk) => handler(chunk);
       ipcRenderer.on(CH.agentChunk, listener);

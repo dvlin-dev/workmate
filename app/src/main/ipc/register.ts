@@ -12,7 +12,7 @@ import type { Snapshot } from '@shared/types';
 import type { WorkmateStore } from '../store';
 import type { ReminderBridge, ReportService } from '../agent/context';
 import { ReminderPermissionError } from '../agent/context';
-import { runTurnStream } from '../agent/orchestrator';
+import { runTurnStream, AGENT_TIMEOUT_MS } from '../agent/orchestrator';
 import { buildRawModel } from '../agent/model';
 import { asObjectRecord, broadcastToAllWindows, errorMessage, fail, ok } from './shared';
 
@@ -24,13 +24,23 @@ export interface IpcDeps {
 
 const TEST_TIMEOUT_MS = 30_000;
 
+// 只有超时算 LLM_TIMEOUT；用户主动取消（AbortError）在编排器内静默收尾、不抛错。
 function isTimeout(error: unknown): boolean {
-  const name = error instanceof Error ? error.name : '';
-  return name === 'AbortError' || name === 'TimeoutError';
+  return error instanceof Error && error.name === 'TimeoutError';
+}
+
+function timeoutReason(): Error {
+  return Object.assign(new Error('LLM 响应超时'), { name: 'TimeoutError' });
+}
+function cancelReason(): Error {
+  return Object.assign(new Error('用户取消'), { name: 'AbortError' });
 }
 
 export function registerIpc(deps: IpcDeps): void {
   const { store, reminders, report } = deps;
+
+  // 当前进行中的一轮对话（单窗口单飞）；用于超时与用户取消
+  let currentController: AbortController | null = null;
 
   ipcMain.handle(
     CH.ping,
@@ -40,13 +50,21 @@ export function registerIpc(deps: IpcDeps): void {
 
   ipcMain.handle(CH.snapshotGet, (): AppResult<Snapshot> => ok(store.getSnapshot()));
 
-  ipcMain.handle(CH.agentSendMessage, async (_e, payload): Promise<AppResult<SendMessageResult>> => {
+  ipcMain.handle(CH.agentSendMessage, async (e, payload): Promise<AppResult<SendMessageResult>> => {
     const text = String(asObjectRecord(payload).text ?? '').trim();
     if (!text) return fail('BAD_INPUT', '消息不能为空');
+
+    const controller = new AbortController();
+    currentController = controller;
+    const timer = setTimeout(() => controller.abort(timeoutReason()), AGENT_TIMEOUT_MS);
+
     try {
-      const result = await runTurnStream(text, { store, reminders, report }, (chunk) => {
-        broadcastToAllWindows(CH.agentChunk, chunk); // 逐字 / 工具足迹增量
-      });
+      const result = await runTurnStream(
+        text,
+        { store, reminders, report },
+        (chunk) => e.sender.send(CH.agentChunk, chunk), // 逐字/工具足迹只回发起窗口
+        controller.signal
+      );
       broadcastToAllWindows(CH.snapshotChanged, result.snapshot);
       return ok(result);
     } catch (error) {
@@ -54,7 +72,18 @@ export function registerIpc(deps: IpcDeps): void {
       broadcastToAllWindows(CH.snapshotChanged, store.getSnapshot());
       const code = isTimeout(error) ? 'LLM_TIMEOUT' : 'LLM_ERROR';
       return fail(code, errorMessage(error) || '搭子有点忙，稍后再试');
+    } finally {
+      clearTimeout(timer);
+      if (currentController === controller) currentController = null;
     }
+  });
+
+  ipcMain.handle(CH.agentCancel, (): AppResult<{ cancelled: boolean }> => {
+    if (currentController) {
+      currentController.abort(cancelReason());
+      return ok({ cancelled: true });
+    }
+    return ok({ cancelled: false });
   });
 
   // ── 看板人工操作（人机协作）：mutate → 广播 → 返回最新快照 ───────

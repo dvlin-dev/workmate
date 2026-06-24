@@ -21,8 +21,10 @@ type AppErrorCode =
 | 通道 | 类型 | 入参 | 返回 |
 |------|------|------|------|
 | `app:ping` | invoke | — | `AppResult<{ pong: true; version: string }>`（健康检查） |
-| `agent:sendMessage` | invoke | `{ text: string }` | `AppResult<SendMessageResult>`（结束时 resolve；期间流式发 `agent:chunk`） |
-| `agent:chunk` | event(主→渲染) | — | `AgentChunk`（逐字 `text` / 工具足迹 `tool` 增量） |
+| `agent:sendMessage` | invoke | `{ text: string }` | `AppResult<SendMessageResult>`（结束时 resolve；期间流式发 `agent:chunk`；超时→`LLM_TIMEOUT`） |
+| `agent:chunk` | event(主→渲染，仅发起窗口) | — | `AgentChunk`（逐字 `text` / 工具足迹 `tool` 增量） |
+| `agent:cancel` | invoke | — | `AppResult<{ cancelled: boolean }>`（中断当前轮，保留已收到部分） |
+| `menu:open-settings` | event(主→渲染) | — | —（菜单「设置…」⌘, 触发，渲染层打开设置弹窗） |
 | `board:toggleTask` | invoke | `{ taskId }` | `AppResult<Snapshot>`（人工勾选/取消） |
 | `board:addGoal` | invoke | `{ title }` | `AppResult<Snapshot>`（人工新建目标） |
 | `board:addTask` | invoke | `{ goalId, title, due? }` | `AppResult<Snapshot>`（人工加待办） |
@@ -55,7 +57,8 @@ type AgentChunk =
 
 interface WorkmateApi {
   ping(): Promise<AppResult<{ pong: true; version: string }>>
-  agent:     { sendMessage(text: string): Promise<AppResult<SendMessageResult>>; onChunk(h: (c: AgentChunk) => void): () => void }
+  onOpenSettings(h: () => void): () => void
+  agent:     { sendMessage(text: string): Promise<AppResult<SendMessageResult>>; cancel(): Promise<AppResult<{ cancelled: boolean }>>; onChunk(h: (c: AgentChunk) => void): () => void }
   board:     { toggleTask(taskId): Promise<AppResult<Snapshot>>; addGoal(title): Promise<AppResult<Snapshot>>; addTask(goalId, title, due?): Promise<AppResult<Snapshot>>; setProgress(goalId, progress): Promise<AppResult<Snapshot>>; clearWeek(): Promise<AppResult<Snapshot>> }
   snapshot:  { get(): Promise<AppResult<Snapshot>>; onChange(h: (s: Snapshot) => void): () => void }
   report:    { generate(weekOf?: string): Promise<AppResult<{ markdown: string }>> }

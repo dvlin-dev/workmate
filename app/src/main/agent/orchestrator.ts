@@ -71,16 +71,22 @@ export async function runTurn(text: string, deps: RunTurnDeps): Promise<RunTurnR
   return { reply, snapshot: store.getSnapshot(), toolTrace: trace };
 }
 
-/** 流式：逐字 onEvent('text')，工具执行后 onEvent('tool')；返回最终结果 */
+/**
+ * 流式：逐字 onEvent('text')，工具执行后 onEvent('tool')；返回最终结果。
+ * signal 由调用方提供（叠加超时 + 用户取消）。注意：agents-core 在 abort 时是**优雅 close 流**
+ * （不抛错、stream.completed 仍 resolve），所以超时/取消必须在循环结束后查 signal.aborted 才能识别。
+ */
 export async function runTurnStream(
   text: string,
   deps: RunTurnDeps,
-  onEvent: (event: StreamEvent) => void
+  onEvent: (event: StreamEvent) => void,
+  signal: AbortSignal = AbortSignal.timeout(AGENT_TIMEOUT_MS)
 ): Promise<RunTurnResult> {
   const { store, agent, trace, context } = prepare(text, deps);
 
   let reply = '';
-  const flushTrace = (emitted: { n: number }) => {
+  const emitted = { n: 0 };
+  const flushTrace = () => {
     while (emitted.n < trace.length) {
       onEvent({ kind: 'tool', item: trace[emitted.n]! });
       emitted.n += 1;
@@ -90,14 +96,13 @@ export async function runTurnStream(
   try {
     const stream = await run(agent, [user(text)], {
       maxTurns: MAX_TURNS,
-      signal: AbortSignal.timeout(AGENT_TIMEOUT_MS),
+      signal,
       context,
       stream: true,
     });
 
-    const emitted = { n: 0 };
     for await (const event of stream) {
-      flushTrace(emitted); // 工具刚执行完就把足迹推给前端
+      flushTrace(); // 工具刚执行完就把足迹推给前端
       if (event.type === 'raw_model_stream_event' && event.data?.type === 'output_text_delta') {
         const delta = event.data.delta;
         if (delta) {
@@ -107,8 +112,19 @@ export async function runTurnStream(
       }
     }
     await stream.completed;
-    flushTrace(emitted);
-    reply = (stream.finalOutput ?? reply ?? '').toString() || reply;
+    flushTrace();
+
+    if (signal.aborted) {
+      const reason = signal.reason as { name?: string } | undefined;
+      if (reason?.name === 'TimeoutError') {
+        // 超时：抛 TimeoutError 让 IPC 层映射为 LLM_TIMEOUT（兑现 §5 降级契约）
+        throw Object.assign(new Error('LLM 响应超时'), { name: 'TimeoutError' });
+      }
+      // 用户取消：保留已流式收到的部分文本，静默收尾
+      reply = reply || '（已停止）';
+    } else {
+      reply = (stream.finalOutput ?? reply).toString() || reply;
+    }
   } catch (error) {
     if (error instanceof MaxTurnsExceededError) {
       reply = reply || MAX_TURNS_FALLBACK;

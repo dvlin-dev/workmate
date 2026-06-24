@@ -11,6 +11,7 @@ export const CH = {
   ping: 'app:ping',
   agentSendMessage: 'agent:sendMessage',
   agentChunk: 'agent:chunk',
+  agentCancel: 'agent:cancel',
   snapshotGet: 'snapshot:get',
   snapshotChanged: 'snapshot:changed',
   reportGenerate: 'report:generate',
@@ -19,6 +20,7 @@ export const CH = {
   configTestProvider: 'config:testProvider',
   remindersWrite: 'reminders:write',
   nudgeNotify: 'nudge:notify',
+  menuOpenSettings: 'menu:open-settings',
   boardToggleTask: 'board:toggleTask',
   boardAddGoal: 'board:addGoal',
   boardAddTask: 'board:addTask',
@@ -73,8 +75,12 @@ export type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T
 
 export interface WorkmateApi {
   ping(): Promise<AppResult<{ pong: true; version: string }>>;
+  /** 菜单「设置…」(⌘,) 触发；返回退订函数 */
+  onOpenSettings(handler: () => void): () => void;
   agent: {
     sendMessage(text: string): Promise<AppResult<SendMessageResult>>;
+    /** 中断当前进行中的一轮（流式停止）；保留已收到的部分回复 */
+    cancel(): Promise<AppResult<{ cancelled: boolean }>>;
     /** 订阅本轮流式增量；返回退订函数 */
     onChunk(handler: (chunk: AgentChunk) => void): () => void;
   };

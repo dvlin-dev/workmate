@@ -39,6 +39,10 @@ export function onAgentChunk(handler: (chunk: AgentChunk) => void): () => void {
   return api().agent.onChunk(handler);
 }
 
+export async function cancelAgent(): Promise<boolean> {
+  return unwrap(await api().agent.cancel()).cancelled;
+}
+
 export async function toggleTask(taskId: string): Promise<Snapshot> {
   return unwrap(await api().board.toggleTask(taskId));
 }

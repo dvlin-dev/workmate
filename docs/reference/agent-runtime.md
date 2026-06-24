@@ -9,7 +9,7 @@
 | `@openai/agents-core` | `0.5.1` | `Agent` / `run()` / `tool()` / `RunContext`，自带多步工具循环 |
 | `@openai/agents-extensions` | `0.5.1` | `aisdk()`：把 AI SDK 模型包成 agents-core 的 model |
 | `ai` | `6.0.97` | AI SDK（`generateText`；测试/无 key 用 `MockLanguageModelV3`） |
-| `@ai-sdk/openai-compatible` | `2.0.30` | `createOpenAICompatible`：OpenAI 兼容端点（百度 OneAPI） |
+| `@ai-sdk/openai-compatible` | `2.0.30` | `createOpenAICompatible`：OpenAI 兼容端点（OpenAI 兼容服务） |
 | `zod` | `4.3.6` | tool 入参 schema |
 
 > 不做 membership/thinking/多 provider 注册表，只取主干 `createOpenAICompatible(...)(model)` → `aisdk()` → `Agent`。
@@ -32,7 +32,7 @@ interface ToolTraceItem { tool: string; summary: string }
 - **有 key**：`createOpenAICompatible({ name, apiKey, baseURL })(model)` → `aisdk(chatModel)`。baseURL 末尾不带 `/chat/completions`（SDK 自动补）。
 - **无 key**：返回基于 `MockLanguageModelV3`（`ai/test`）的确定性模型（按关键词回 tool-call 或友好文本），经 `aisdk()` 包好——保证现场无 key 也能演示 UI 闭环。
 - `buildModel(config)`：`config.llm.apiKey.trim()` 为空 → mock，否则真实。
-- **默认 baseURL/model** 见 [`product-design.md`](../design/product-design.md) §9（内置 OneAPI baseURL，apiKey 留空引导用户去 token 页获取，默认 model 为可改占位）。**绝不硬编码 apiKey。**
+- **默认 baseURL/model** 见 [`product-design.md`](../design/product-design.md) §9（内置默认 baseURL，apiKey 留空引导用户填写，默认 model 为可改占位）。**绝不硬编码 apiKey。**
 
 ## 3. `AgentContext`（每次 `run` 注入；tool 经 `runContext.context` 读取）
 
@@ -70,7 +70,8 @@ agents-core 标准范式（`new Agent({ name:'Workmate', instructions: buildSyst
 - `runTurn(text, deps)`：先 `store.appendEvent({kind:'note', rawText:text, summary:text})`（录入即落原始事件）→ 构建 agent + `AgentContext{trace:[]}` → `run(agent, [user(text)], { maxTurns: 8, context })` → 返回 `{ reply: result.finalOutput ?? '', snapshot: store.getSnapshot(), toolTrace: ctx.trace }`。
 - `maxTurns: 8` 即循环上限兜底。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
 - 每轮后 store 已被 tool 改写并落盘；IPC 层负责 `broadcast(snapshot:changed)`（见 ipc-contract.md §4）。
-- **流式（已实现）**：`runTurnStream(text, deps, onEvent)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`。IPC `agent:sendMessage` 期间广播 `agent:chunk`，结束 resolve 最终结果。无 key 的 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
+- **流式（已实现）**：`runTurnStream(text, deps, onEvent, signal)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`。IPC `agent:sendMessage` 用 `e.sender.send` 把 `agent:chunk` 只回发起窗口。无 key 的 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
+- **超时与取消（关键）**：agents-core 在 abort 时是**优雅 close 流**（`for await` 正常结束、`stream.completed` resolve、不抛错），所以超时/取消**必须在循环结束后查 `signal.aborted`**：reason 为 `TimeoutError` → 抛出（IPC 映射 `LLM_TIMEOUT`，兑现 §5 降级）；reason 为 `AbortError`（用户点「停止」走 `agent:cancel`）→ 保留已收到的部分文本、静默收尾。IPC 层每轮建一个 `AbortController` + `AGENT_TIMEOUT_MS` 定时器，`agent:cancel` abort 它。
 
 ## 6. system prompt
 
