@@ -1,6 +1,7 @@
 import { LayoutDashboard, Boxes, Settings } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useNavStore, type Destination } from '../../store/useNavStore';
+import { UpdateCard } from '../update/UpdateCard';
 
 const MODULES: { dest: Destination; label: string; icon: typeof Boxes }[] = [
   { dest: 'home', label: '搭子 / 看板', icon: LayoutDashboard },
@@ -41,15 +42,18 @@ export function Sidebar({ onOpenSettings }: { onOpenSettings: () => void }) {
         })}
       </nav>
 
-      <div className="window-no-drag shrink-0 p-2">
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-        >
-          <Settings className="size-4 shrink-0" />
-          <span className="min-w-0 flex-1 truncate">设置</span>
-        </button>
+      <div className="window-no-drag shrink-0 pb-2">
+        <UpdateCard />
+        <div className="px-2">
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+          >
+            <Settings className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1 truncate">设置</span>
+          </button>
+        </div>
       </div>
     </aside>
   );

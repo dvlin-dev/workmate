@@ -15,6 +15,7 @@ import { Switch } from '../ui/switch';
 import { Separator } from '../ui/separator';
 import { useConfigStore } from '../../store/useConfigStore';
 import { openLogsDirectory, testProvider } from '../../lib/api';
+import { UpdateSection } from '../update/UpdateSection';
 
 type TestStatus = 'idle' | 'testing' | 'success' | 'error';
 
@@ -192,6 +193,10 @@ export function SettingsDialog({
             打开日志目录
           </Button>
         </div>
+
+        <Separator />
+
+        <UpdateSection />
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

@@ -30,6 +30,10 @@ export const CH = {
   skillsSetEnabled: 'skills:setEnabled',
   skillsOpenDirectory: 'skills:openDirectory',
   logsOpenDirectory: 'logs:openDirectory',
+  updateGetState: 'update:getState',
+  updateCheck: 'update:check',
+  updateRestart: 'update:restart',
+  updateStateChanged: 'update:stateChanged',
 } as const;
 
 export type AppErrorCode =
@@ -95,6 +99,29 @@ export interface SkillDetail extends SkillSummary {
   files: string[];
 }
 
+/** 应用自动更新状态机（主进程广播，渲染层据此渲染） */
+export type UpdateStatus =
+  | 'unsupported' // 非打包 / 非 macOS：不检查更新
+  | 'idle' // 已是最新或尚未检查
+  | 'checking'
+  | 'available' // 发现新版本（autoDownload 下会很快转入 downloading）
+  | 'downloading'
+  | 'downloaded' // 已就绪，可重启安装
+  | 'restarting'
+  | 'error';
+
+export interface AppUpdateState {
+  status: UpdateStatus;
+  currentVersion: string;
+  availableVersion: string | null;
+  downloadedVersion: string | null;
+  /** 下载进度 0–100；非下载态为 null */
+  progressPercent: number | null;
+  errorMessage: string | null;
+  /** 最近一次检查完成时间（ISO）；未检查为 null */
+  lastCheckedAt: string | null;
+}
+
 /** 深度可选（config:set 的 patch 入参） */
 export type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 
@@ -142,6 +169,13 @@ export interface WorkmateApi {
   /** 工具执行日志（本地留存）：在访达打开日志目录 */
   logs: {
     openDirectory(): Promise<AppResult<void>>;
+  };
+  /** 应用自动更新：取状态 / 手动检查 / 重启安装 / 订阅状态变化 */
+  updates: {
+    getState(): Promise<AppResult<AppUpdateState>>;
+    check(): Promise<AppResult<AppUpdateState>>;
+    restartToInstall(): Promise<AppResult<void>>;
+    onStateChange(handler: (state: AppUpdateState) => void): () => void;
   };
   nudge: {
     onNotify(handler: (payload: NudgePayload) => void): () => void;

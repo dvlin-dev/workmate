@@ -42,6 +42,10 @@ type AppErrorCode =
 | `skills:setEnabled` | invoke | `{ name, enabled }` | `AppResult<SkillSummary>` |
 | `skills:openDirectory` | invoke | `{ name }` | `AppResult<void>`（shell 打开技能目录） |
 | `logs:openDirectory` | invoke | — | `AppResult<void>`（shell 打开工具执行日志目录 `userData/logs`） |
+| `update:getState` | invoke | — | `AppResult<AppUpdateState>`（当前更新状态机快照） |
+| `update:check` | invoke | — | `AppResult<AppUpdateState>`（手动检查更新） |
+| `update:restart` | invoke | — | `AppResult<void>`（已下载时重启安装） |
+| `update:stateChanged` | event(主→渲染) | — | `AppUpdateState`（更新状态变化时广播；驱动设置「软件更新」区 + 侧边栏卡片） |
 | `nudge:notify` | event(主→渲染) | — | `NudgePayload`（点击通知唤起窗口） |
 
 ## 3. `WorkmateApi` 接口（契约，`shared/ipc.ts`）
@@ -72,6 +76,7 @@ interface WorkmateApi {
   reminders: { write(taskId: string): Promise<AppResult<{ reminderId: string }>> }
   skills:    { list(): Promise<AppResult<SkillSummary[]>>; getDetail(name): Promise<AppResult<SkillDetail>>; setEnabled(name, enabled): Promise<AppResult<SkillSummary>>; openDirectory(name): Promise<AppResult<void>> }
   logs:      { openDirectory(): Promise<AppResult<void>> }
+  updates:   { getState(): Promise<AppResult<AppUpdateState>>; check(): Promise<AppResult<AppUpdateState>>; restartToInstall(): Promise<AppResult<void>>; onStateChange(h: (s: AppUpdateState) => void): () => void }
   nudge:     { onNotify(h: (n: NudgePayload) => void): () => void }
 }
 // 渲染层：declare global { interface Window { workmateAPI: WorkmateApi } }

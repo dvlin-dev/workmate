@@ -7,7 +7,7 @@ import { app, ipcMain, shell } from 'electron';
 import { mkdirSync } from 'node:fs';
 import { generateText } from 'ai';
 import { CH } from '@shared/ipc';
-import type { AppResult, SendMessageResult } from '@shared/ipc';
+import type { AppResult, AppUpdateState, SendMessageResult } from '@shared/ipc';
 import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot } from '@shared/types';
 import type { SkillSummary, SkillDetail } from '../skills/types';
@@ -18,12 +18,14 @@ import { runTurnStream, AGENT_TIMEOUT_MS } from '../agent/orchestrator';
 import { buildRawModel } from '../agent/model';
 import { getToolLogger, getLogsDir } from '../agent/tool-logger';
 import { getSkillsRegistry } from '../skills';
+import type { UpdateService } from '../updater';
 import { asObjectRecord, broadcastToAllWindows, errorMessage, fail, ok } from './shared';
 
 export interface IpcDeps {
   store: WorkmateStore;
   reminders: ReminderBridge;
   report: ReportService;
+  updates: UpdateService;
 }
 
 const TEST_TIMEOUT_MS = 30_000;
@@ -41,7 +43,7 @@ function cancelReason(): Error {
 }
 
 export function registerIpc(deps: IpcDeps): void {
-  const { store, reminders, report } = deps;
+  const { store, reminders, report, updates } = deps;
   const skills = getSkillsRegistry();
   void skills.refresh(); // 后台预热（拷预装 + 扫描）；失败不阻塞
   const toolLogger = getToolLogger(); // 工具执行日志（本地 JSONL 留存）
@@ -243,5 +245,17 @@ export function registerIpc(deps: IpcDeps): void {
     } catch (error) {
       return fail('INTERNAL', errorMessage(error) || '打开日志目录失败');
     }
+  });
+
+  // ── 应用自动更新 ────────────────────────────────────────────
+  ipcMain.handle(CH.updateGetState, (): AppResult<AppUpdateState> => ok(updates.getState()));
+
+  ipcMain.handle(CH.updateCheck, async (): Promise<AppResult<AppUpdateState>> =>
+    ok(await updates.checkForUpdates())
+  );
+
+  ipcMain.handle(CH.updateRestart, (): AppResult<void> => {
+    updates.restartToInstall();
+    return ok(undefined);
   });
 }

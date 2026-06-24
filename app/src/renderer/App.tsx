@@ -8,6 +8,7 @@ import { useSnapshotStore } from './store/useSnapshotStore';
 import { useConfigStore } from './store/useConfigStore';
 import { useChatStore } from './store/useChatStore';
 import { useNavStore } from './store/useNavStore';
+import { useUpdateStore } from './store/useUpdateStore';
 
 function HomeView({ onRequireConfig }: { onRequireConfig: () => void }) {
   return (
@@ -25,6 +26,7 @@ export default function App() {
   const loadConfig = useConfigStore((s) => s.load);
   const config = useConfigStore((s) => s.config);
   const destination = useNavStore((s) => s.destination);
+  const initUpdates = useUpdateStore((s) => s.init);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [firstRunChecked, setFirstRunChecked] = useState(false);
@@ -34,13 +36,15 @@ export default function App() {
     void loadConfig();
     const unsubSnapshot = subscribe();
     const unsubChunks = subscribeChunks();
+    const unsubUpdates = initUpdates();
     const unsubSettings = window.workmateAPI.onOpenSettings(() => setSettingsOpen(true));
     return () => {
       unsubSnapshot();
       unsubChunks();
+      unsubUpdates();
       unsubSettings();
     };
-  }, [hydrate, subscribe, subscribeChunks, loadConfig]);
+  }, [hydrate, subscribe, subscribeChunks, loadConfig, initUpdates]);
 
   // 首启无 key → 自动打开设置引导
   useEffect(() => {

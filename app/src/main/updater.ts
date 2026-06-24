@@ -1,30 +1,27 @@
+/**
+ * 应用自动更新服务（electron-updater 封装）。
+ * 设计：事件驱动的状态机，状态变化经 onChange 广播给渲染层（settings「关于」+ 侧边栏卡片渲染）。
+ * 模型：autoDownload=true（静默后台下载，Chrome 式）+ autoInstallOnAppQuit=true（退出即装）；
+ * UI 只负责"看得见 + 一键重启安装"，不做 skip 版本 / 下载开关等重型设置（按需省略）。
+ * 可测：updater / logger / 定时器 / now / onChange 均可注入，无需打包环境。
+ */
+
 import { createRequire } from 'node:module';
+import type { AppUpdateState, UpdateStatus } from '@shared/ipc';
 
 const require = createRequire(import.meta.url);
 
 export type LoggerLike = Pick<typeof console, 'info' | 'warn'>;
 
-export type DialogLike = {
-  showMessageBox: (options: {
-    type?: 'none' | 'info' | 'error' | 'question' | 'warning';
-    buttons?: string[];
-    defaultId?: number;
-    cancelId?: number;
-    message: string;
-    detail?: string;
-  }) => Promise<{ response: number }>;
-};
-
-type TimerLike = {
-  unref?: () => void;
-};
+type TimerLike = { unref?: () => void };
 
 type UpdaterEvent =
-  | 'update-not-available'
-  | 'update-downloaded'
-  | 'error'
+  | 'checking-for-update'
   | 'update-available'
-  | 'download-progress';
+  | 'update-not-available'
+  | 'download-progress'
+  | 'update-downloaded'
+  | 'error';
 
 type UpdaterLike = {
   autoDownload: boolean;
@@ -35,33 +32,39 @@ type UpdaterLike = {
 };
 
 export type UpdateService = {
+  getState: () => AppUpdateState;
+  checkForUpdates: () => Promise<AppUpdateState>;
+  restartToInstall: () => void;
   startAutomaticChecks: () => void;
-  checkForUpdates: (options?: { interactive?: boolean }) => Promise<void>;
 };
 
 type CreateUpdateServiceOptions = {
+  currentVersion?: string;
   platform?: NodeJS.Platform;
   isPackaged?: boolean;
   isSmokeCheck?: boolean;
   updater?: UpdaterLike;
   logger?: LoggerLike;
-  dialog?: DialogLike;
+  now?: () => Date;
+  /** 状态变化回调（运行时接到 IPC 广播；测试可断言） */
+  onChange?: (state: AppUpdateState) => void;
   scheduleTimeout?: (callback: () => void, delayMs: number) => TimerLike;
+  scheduleInterval?: (callback: () => void, delayMs: number) => TimerLike;
 };
 
+/** 启动后首检延迟（让窗口/IPC 先就绪） */
 const STARTUP_CHECK_DELAY_MS = 20_000;
+/** 之后每隔多久静默复检——长开的 app 才能在不重启的情况下拿到新版本 */
+const RECHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
-function loadElectronApp(): { isPackaged: boolean } {
-  const electron = require('electron') as { app?: { isPackaged?: boolean } };
-  return { isPackaged: electron.app?.isPackaged === true };
-}
-
-function loadElectronDialog(): DialogLike {
-  const electron = require('electron') as { dialog?: DialogLike };
-  if (!electron.dialog) {
-    throw new Error('electron.dialog is unavailable.');
-  }
-  return electron.dialog;
+function loadElectronApp(): { isPackaged: boolean; version: string } {
+  const electron = require('electron') as {
+    app?: { isPackaged?: boolean; getVersion?: () => string };
+  };
+  return {
+    isPackaged: electron.app?.isPackaged === true,
+    version: electron.app?.getVersion?.() ?? '0.0.0',
+  };
 }
 
 function loadAutoUpdater(): UpdaterLike {
@@ -72,104 +75,156 @@ function loadAutoUpdater(): UpdaterLike {
   return updaterModule.autoUpdater;
 }
 
+/** 从 electron-updater 事件载荷里安全取版本号 */
+function versionOf(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const value = (payload as { version?: unknown }).version;
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+/** 从 download-progress 载荷里安全取百分比 */
+function percentOf(payload: unknown): number | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const value = (payload as { percent?: unknown }).percent;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+function messageOf(error: unknown): string {
+  if (error instanceof Error && error.message.trim()) return error.message.trim();
+  if (typeof error === 'string' && error.trim()) return error.trim();
+  return '更新失败，请稍后再试。';
+}
+
 export function createUpdateService({
+  currentVersion = loadElectronApp().version,
   platform = process.platform,
   isPackaged = loadElectronApp().isPackaged,
   isSmokeCheck = process.env['WORKMATE_RELEASE_SMOKE'] === '1',
   updater = loadAutoUpdater(),
   logger = console,
-  dialog = loadElectronDialog(),
+  now = () => new Date(),
+  onChange,
   scheduleTimeout = (callback, delayMs) => {
     const timer = setTimeout(callback, delayMs);
     timer.unref();
     return timer;
   },
+  scheduleInterval = (callback, delayMs) => {
+    const timer = setInterval(callback, delayMs);
+    timer.unref();
+    return timer;
+  },
 }: CreateUpdateServiceOptions = {}): UpdateService {
   const supported = platform === 'darwin' && isPackaged && !isSmokeCheck;
-  let lastCheckWasInteractive = false;
 
-  updater.autoDownload = true;
-  updater.autoInstallOnAppQuit = true;
+  let state: AppUpdateState = {
+    status: supported ? 'idle' : 'unsupported',
+    currentVersion,
+    availableVersion: null,
+    downloadedVersion: null,
+    progressPercent: null,
+    errorMessage: null,
+    lastCheckedAt: null,
+  };
 
-  updater.on('error', (error) => {
-    logger.warn('[updater] update check failed', error);
-    if (!lastCheckWasInteractive) return;
-    lastCheckWasInteractive = false;
-    void dialog.showMessageBox({
-      type: 'warning',
-      buttons: ['好'],
-      message: '检查更新失败，请稍后再试。',
+  const setState = (patch: Partial<AppUpdateState>): AppUpdateState => {
+    state = { ...state, ...patch };
+    onChange?.(state);
+    return state;
+  };
+
+  const markChecked = (status: UpdateStatus, patch: Partial<AppUpdateState> = {}) =>
+    setState({ status, lastCheckedAt: now().toISOString(), errorMessage: null, ...patch });
+
+  if (supported) {
+    updater.autoDownload = true;
+    updater.autoInstallOnAppQuit = true;
+
+    updater.on('checking-for-update', () => {
+      setState({ status: 'checking', errorMessage: null });
     });
-  });
 
-  updater.on('update-not-available', () => {
-    if (!lastCheckWasInteractive) return;
-    lastCheckWasInteractive = false;
-    void dialog.showMessageBox({
-      type: 'info',
-      buttons: ['好'],
-      message: '当前已是最新版本。',
-    });
-  });
-
-  updater.on('update-downloaded', () => {
-    logger.info('[updater] update downloaded; it will be installed on quit');
-    if (!lastCheckWasInteractive) return;
-    lastCheckWasInteractive = false;
-
-    void dialog
-      .showMessageBox({
-        type: 'info',
-        buttons: ['稍后', '重启安装'],
-        defaultId: 1,
-        cancelId: 0,
-        message: '新版本已下载，重启 Workmate 后即可安装。',
-      })
-      .then((result) => {
-        if (result.response === 1) {
-          updater.quitAndInstall(false, true);
-        }
+    updater.on('update-available', (info) => {
+      markChecked('available', {
+        availableVersion: versionOf(info),
+        downloadedVersion: null,
+        progressPercent: null,
       });
-  });
+    });
 
-  const checkForUpdates = async ({
-    interactive = false,
-  }: { interactive?: boolean } = {}): Promise<void> => {
-    lastCheckWasInteractive = interactive;
+    updater.on('update-not-available', () => {
+      markChecked('idle', { availableVersion: null, progressPercent: null });
+    });
 
-    if (!supported) {
-      if (interactive) {
-        await dialog.showMessageBox({
-          type: 'info',
-          buttons: ['好'],
-          message: '开发环境不会检查更新。',
-        });
-      }
-      return;
-    }
+    updater.on('download-progress', (progress) => {
+      setState({ status: 'downloading', progressPercent: percentOf(progress), errorMessage: null });
+    });
 
+    updater.on('update-downloaded', (info) => {
+      const version = versionOf(info) ?? state.availableVersion;
+      logger.info('[updater] update downloaded; ready to install on restart/quit');
+      setState({
+        status: 'downloaded',
+        downloadedVersion: version,
+        availableVersion: null,
+        progressPercent: null,
+        errorMessage: null,
+      });
+    });
+
+    updater.on('error', (error) => {
+      logger.warn('[updater] update error', error);
+      // 已有就绪版本时报错（多为后续检查抖动）不要抹掉"可重启安装"的状态
+      if (state.status === 'downloaded') return;
+      setState({ status: 'error', progressPercent: null, errorMessage: messageOf(error) });
+    });
+  }
+
+  const checkForUpdates = async (): Promise<AppUpdateState> => {
+    if (!supported) return state;
+    if (state.status === 'restarting' || state.status === 'downloading') return state;
+
+    setState({ status: 'checking', errorMessage: null });
     try {
       await updater.checkForUpdates();
     } catch (error) {
       logger.warn('[updater] update check failed', error);
-      lastCheckWasInteractive = false;
-      if (interactive) {
-        await dialog.showMessageBox({
-          type: 'warning',
-          buttons: ['好'],
-          message: '检查更新失败，请稍后再试。',
-        });
-      }
+      setState({
+        status: 'error',
+        errorMessage: messageOf(error),
+        lastCheckedAt: now().toISOString(),
+      });
+    }
+    return state;
+  };
+
+  const restartToInstall = (): void => {
+    if (state.status !== 'downloaded') return;
+    setState({ status: 'restarting' });
+    updater.autoInstallOnAppQuit = true;
+    try {
+      updater.quitAndInstall(false, true);
+    } catch (error) {
+      logger.warn('[updater] quitAndInstall failed', error);
+      setState({ status: 'downloaded', errorMessage: messageOf(error) });
     }
   };
 
+  const startAutomaticChecks = (): void => {
+    if (!supported) return;
+    // 启动后首检 + 之后周期性静默复检（长开的 app 不重启也能拿到新版本）
+    scheduleTimeout(() => {
+      void checkForUpdates();
+    }, STARTUP_CHECK_DELAY_MS);
+    scheduleInterval(() => {
+      void checkForUpdates();
+    }, RECHECK_INTERVAL_MS);
+  };
+
   return {
-    startAutomaticChecks: () => {
-      if (!supported) return;
-      scheduleTimeout(() => {
-        void checkForUpdates();
-      }, STARTUP_CHECK_DELAY_MS);
-    },
+    getState: () => state,
     checkForUpdates,
+    restartToInstall,
+    startAutomaticChecks,
   };
 }

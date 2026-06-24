@@ -3,12 +3,14 @@
  */
 
 import { app, BrowserWindow, session } from 'electron';
+import { CH } from '@shared/ipc';
 import { createWorkmateStore } from './persistence';
 import { createReportService } from './report';
 import { MockReminderBridge } from './reminders/mock';
 import { OsascriptReminderBridge } from './reminders/bridge';
 import type { ReminderBridge } from './agent/context';
 import { registerIpc } from './ipc/register';
+import { broadcastToAllWindows } from './ipc/shared';
 import { startNudgeScheduler } from './nudge/scheduler';
 import { buildAppMenu } from './menu';
 import { createMainWindow, focusOrCreateMainWindow } from './window';
@@ -54,12 +56,17 @@ if (!app.requestSingleInstanceLock()) {
     const store = createWorkmateStore();
     const report = createReportService(store);
     const reminders = createReminderBridge(store);
-    const updates = createUpdateService();
+    // 状态变化广播给所有窗口，渲染层据此渲染「关于」区与侧边栏更新卡片
+    const updates = createUpdateService({
+      onChange: (state) => broadcastToAllWindows(CH.updateStateChanged, state),
+    });
 
-    registerIpc({ store, reminders, report });
+    registerIpc({ store, reminders, report, updates });
     buildAppMenu({
       checkForUpdates: () => {
-        void updates.checkForUpdates({ interactive: true });
+        // 打开设置页（更新 UI 所在）+ 立即检查，结果实时反映到「关于」区
+        broadcastToAllWindows(CH.menuOpenSettings, undefined);
+        void updates.checkForUpdates();
       },
     });
     startNudgeScheduler(store);

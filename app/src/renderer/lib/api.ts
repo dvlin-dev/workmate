@@ -6,6 +6,7 @@
 import type {
   AgentChunk,
   AppResult,
+  AppUpdateState,
   DeepPartial,
   NudgePayload,
   SendMessageResult,
@@ -113,4 +114,21 @@ export async function openSkillDirectory(name: string): Promise<void> {
 // ── 工具执行日志 ──────────────────────────────────────────
 export async function openLogsDirectory(): Promise<void> {
   return unwrap(await api().logs.openDirectory());
+}
+
+// ── 应用自动更新 ──────────────────────────────────────────
+export async function getUpdateState(): Promise<AppUpdateState> {
+  return unwrap(await api().updates.getState());
+}
+
+export async function checkForUpdates(): Promise<AppUpdateState> {
+  return unwrap(await api().updates.check());
+}
+
+export async function restartToInstall(): Promise<void> {
+  return unwrap(await api().updates.restartToInstall());
+}
+
+export function onUpdateState(handler: (state: AppUpdateState) => void): () => void {
+  return api().updates.onStateChange(handler);
 }

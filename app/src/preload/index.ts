@@ -5,7 +5,7 @@
 
 import { contextBridge, ipcRenderer } from 'electron';
 import { CH } from '../shared/ipc';
-import type { WorkmateApi, NudgePayload, AgentChunk } from '../shared/ipc';
+import type { WorkmateApi, NudgePayload, AgentChunk, AppUpdateState } from '../shared/ipc';
 import type { Snapshot } from '../shared/types';
 
 const api: WorkmateApi = {
@@ -57,6 +57,16 @@ const api: WorkmateApi = {
   },
   logs: {
     openDirectory: () => ipcRenderer.invoke(CH.logsOpenDirectory),
+  },
+  updates: {
+    getState: () => ipcRenderer.invoke(CH.updateGetState),
+    check: () => ipcRenderer.invoke(CH.updateCheck),
+    restartToInstall: () => ipcRenderer.invoke(CH.updateRestart),
+    onStateChange: (handler) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: AppUpdateState) => handler(state);
+      ipcRenderer.on(CH.updateStateChanged, listener);
+      return () => ipcRenderer.removeListener(CH.updateStateChanged, listener);
+    },
   },
   nudge: {
     onNotify: (handler) => {
