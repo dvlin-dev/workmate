@@ -10,7 +10,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { ReminderPermissionError, type ReminderBridge } from '../agent/context';
+import type { ReminderBridge } from '../agent/context';
+import { ReminderPermissionError } from './errors';
 import type { WorkmateStore } from '../store';
 
 const LIST_NAME = 'Workmate';
@@ -150,15 +151,6 @@ export class OsascriptReminderBridge implements ReminderBridge {
     this.timeoutMs = options.timeoutMs ?? OSASCRIPT_TIMEOUT_MS;
   }
 
-  /** 低层：单条直写（按 title/due）。同样走批量脚本（1 项），不进合并队列。 */
-  async writeReminder(task: { title: string; due?: string }): Promise<string> {
-    const argv = [LIST_NAME, ...this.encodeTask(task.title, task.due)];
-    const out = await this.enqueue(() => this.runWithRetry(argv));
-    const id = firstId(out);
-    if (!id) throw new Error('未能获取提醒事项 id');
-    return id;
-  }
-
   /** 高层：查 Store → 幂等 → 合并写入 → 回填落盘。agent 的并发调用在此被合并成一次 osascript。 */
   writeReminderById(taskId: string): Promise<string> {
     const existing = this.inflight.get(taskId);
@@ -270,11 +262,4 @@ export class OsascriptReminderBridge implements ReminderBridge {
     }
     throw lastError instanceof Error ? lastError : new Error('写入提醒事项失败');
   }
-}
-
-function firstId(out: string): string | undefined {
-  return out
-    .split('\n')
-    .map((s) => s.trim())
-    .filter(Boolean)[0];
 }

@@ -14,7 +14,7 @@
 import { type RunContext, type Tool } from '@openai/agents-core';
 import { z } from 'zod';
 import type { AgentContext } from './context';
-import { ReminderPermissionError } from './context';
+import { ReminderPermissionError } from '../reminders/errors';
 import { defineTool } from './tools/define';
 
 function ctxOf(rc?: RunContext<AgentContext>): AgentContext {

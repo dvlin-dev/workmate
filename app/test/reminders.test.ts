@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { WorkmateStore, createEmptyData } from '../src/main/store';
 import { MockReminderBridge } from '../src/main/reminders/mock';
 import { OsascriptReminderBridge, type OsascriptRunner } from '../src/main/reminders/bridge';
-import { ReminderPermissionError } from '../src/main/agent/context';
+import { ReminderPermissionError } from '../src/main/reminders/errors';
 
 function setup() {
   const store = new WorkmateStore({

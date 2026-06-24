@@ -3,12 +3,8 @@ import { RunContext, type Tool } from '@openai/agents-core';
 import { WorkmateStore, createEmptyData } from '../src/main/store';
 import { MockReminderBridge } from '../src/main/reminders/mock';
 import { createWorkmateTools } from '../src/main/agent/tools';
-import {
-  ReminderPermissionError,
-  type AgentContext,
-  type ReminderBridge,
-  type ReportService,
-} from '../src/main/agent/context';
+import type { AgentContext, ReminderBridge, ReportService } from '../src/main/agent/context';
+import { ReminderPermissionError } from '../src/main/reminders/errors';
 import type { ToolTraceItem } from '../src/shared/types';
 
 const fixedNow = () => new Date(2026, 5, 24, 10, 0, 0);
@@ -141,9 +137,6 @@ describe('Workmate tools · execute 经 invoke', () => {
   it('write_reminder 权限被拒 → 不抛错，返回 needsPermission', async () => {
     const tools = createWorkmateTools();
     const denyingBridge: ReminderBridge = {
-      writeReminder: async () => {
-        throw new ReminderPermissionError();
-      },
       writeReminderById: async () => {
         throw new ReminderPermissionError();
       },

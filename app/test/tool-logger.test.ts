@@ -7,14 +7,14 @@ import { createFileToolLogger } from '../src/main/agent/tool-logger';
 import { WorkmateStore, createEmptyData } from '../src/main/store';
 import { MockReminderBridge } from '../src/main/reminders/mock';
 import { createWorkmateTools } from '../src/main/agent/tools';
-import {
-  ReminderPermissionError,
-  type AgentContext,
-  type ReminderBridge,
-  type ReportService,
-  type ToolLogger,
-  type ToolLogRecord,
+import type {
+  AgentContext,
+  ReminderBridge,
+  ReportService,
+  ToolLogger,
+  ToolLogRecord,
 } from '../src/main/agent/context';
+import { ReminderPermissionError } from '../src/main/reminders/errors';
 
 const fixedNow = () => new Date(2026, 5, 24, 10, 0, 0);
 
@@ -105,9 +105,6 @@ describe('defineTool · 执行埋点（所有工具自动落日志）', () => {
   it('软失败（write_reminder 权限被拒）记 status=error', async () => {
     const logger = memLogger();
     const deny: ReminderBridge = {
-      writeReminder: async () => {
-        throw new ReminderPermissionError();
-      },
       writeReminderById: async () => {
         throw new ReminderPermissionError();
       },

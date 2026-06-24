@@ -7,11 +7,9 @@
 import type { ToolTraceItem } from '@shared/types';
 import type { WorkmateStore } from '../store';
 
-/** 提醒事项桥（osascript 实现见 reminders/bridge.ts；测试用 mock） */
+/** 提醒事项桥（osascript 实现见 reminders/bridge.ts；测试用 mock）。错误见 reminders/errors.ts。 */
 export interface ReminderBridge {
-  /** 低层：纯写入，返回 reminderId */
-  writeReminder(task: { title: string; due?: string }): Promise<string>;
-  /** 高层：查 Store → 幂等 → 写入 → 回填落盘，返回 reminderId */
+  /** 查 Store → 幂等 → 写入 → 回填落盘，返回 reminderId */
   writeReminderById(taskId: string): Promise<string>;
 }
 
@@ -75,13 +73,4 @@ export interface AgentContext {
   workspace?: Workspace;
   /** 工具执行日志（可选：测试不注入则不落盘） */
   toolLogger?: ToolLogger;
-}
-
-/** 提醒事项权限被拒错误（bridge 抛出，tool 捕获后口头引导） */
-export class ReminderPermissionError extends Error {
-  readonly code = 'REMINDER_PERMISSION_DENIED' as const;
-  constructor(message = '提醒事项授权被拒绝') {
-    super(message);
-    this.name = 'ReminderPermissionError';
-  }
 }
