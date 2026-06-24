@@ -2,6 +2,7 @@
 
 import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { listPackage } from '@electron/asar';
 
@@ -148,8 +149,9 @@ const killProcess = async (child) => {
 const smokeLaunch = async (binaryPath, timeoutMs) => {
   const stdoutChunks = [];
   const stderrChunks = [];
+  const smokeUserDataDir = await fs.mkdtemp(path.join(os.tmpdir(), 'workmate-smoke-'));
 
-  const child = spawn(binaryPath, {
+  const child = spawn(binaryPath, [`--user-data-dir=${smokeUserDataDir}`], {
     stdio: ['ignore', 'pipe', 'pipe'],
     env: {
       ...process.env,
@@ -188,6 +190,7 @@ const smokeLaunch = async (binaryPath, timeoutMs) => {
   const failureSignature = containsFailureSignature(`${stdout}\n${stderr}`);
 
   if (result.status === 'exited') {
+    await fs.rm(smokeUserDataDir, { recursive: true, force: true });
     fail(
       `Packaged app exited before smoke timeout (code=${String(result.code)} signal=${String(
         result.signal
@@ -197,10 +200,12 @@ const smokeLaunch = async (binaryPath, timeoutMs) => {
 
   if (failureSignature) {
     await killProcess(child);
+    await fs.rm(smokeUserDataDir, { recursive: true, force: true });
     fail(`Packaged app emitted failure signature "${failureSignature}".\n${stderr || stdout}`);
   }
 
   await killProcess(child);
+  await fs.rm(smokeUserDataDir, { recursive: true, force: true });
 
   return {
     stdoutBytes: Buffer.byteLength(stdout),

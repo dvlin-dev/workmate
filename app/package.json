@@ -1,6 +1,6 @@
 {
   "name": "workmate",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Workmate · 工作搭子 — AI-native macOS work buddy",
   "private": true,
   "type": "module",
@@ -16,10 +16,11 @@
     "dist:mac": "electron-vite build && electron-builder --mac",
     "dist:mac:arm64": "electron-vite build && electron-builder --mac dmg zip --arm64 --publish never",
     "dist:mac:x64": "electron-vite build && electron-builder --mac dmg zip --x64 --publish never",
-    "smoke:packaged": "node scripts/smoke-check-packaged-app.mjs --app-dir release/${npm_package_version} --require-package @openai/agents-core --require-package @openai/agents-extensions --require-package ai --require-package electron-store"
+    "smoke:packaged": "node scripts/smoke-check-packaged-app.mjs --app-dir release/${npm_package_version} --require-package @openai/agents --require-package @openai/agents-core --require-package @openai/agents-extensions --require-package ai --require-package electron-store"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "2.0.30",
+    "@openai/agents": "0.4.3",
     "@openai/agents-core": "0.5.1",
     "@openai/agents-extensions": "0.5.1",
     "@radix-ui/react-avatar": "^1.1.10",

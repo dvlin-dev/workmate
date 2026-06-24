@@ -52,7 +52,8 @@ app/
 | 包 | 版本 | 用途 |
 |----|------|------|
 | `ai` | `6.0.97` | Vercel AI SDK（`generateText`；测试 `MockLanguageModelV3`） |
-| `@ai-sdk/openai-compatible` | `2.0.30` | OpenAI 兼容端点（OneAPI） |
+| `@ai-sdk/openai-compatible` | `2.0.30` | OpenAI 兼容端点 |
+| `@openai/agents` | `0.4.3` | `@openai/agents-extensions` 运行时 peer 依赖（打包必须显式带入） |
 | `@openai/agents-core` | `0.5.1` | Agent / `run()` / `tool()` |
 | `@openai/agents-extensions` | `0.5.1` | `aisdk()` 适配器 |
 | `electron-store` | `^11.0.2` | 单 JSON 持久化（userData，原子写） |
@@ -69,6 +70,8 @@ app/
 **开发（devDependencies）**：`electron@^31.7.7`、`electron-vite@^2.2.0`、`electron-builder@^26.0.12`、`vite@^5.4.20`、`@vitejs/plugin-react-swc@^3.7.2`、`@tailwindcss/vite@^4.1.18`、`tailwindcss@^4.1.18`、`tw-animate-css@^1.4.0`、`typescript@~5.9.2`、`vitest@^2.1.8`、`jsdom`、`@types/{node,react,react-dom}`。
 
 **脚本**：`dev=electron-vite dev`、`build=electron-vite build`、`typecheck=tsc --noEmit`、`dist:mac=electron-vite build && electron-builder --mac`、`pack=…--dir`、`test=vitest run`。
+
+发布脚本：`dist:mac:arm64` / `dist:mac:x64` 分别构建单架构 dmg+zip，`smoke:packaged` 校验 `release/${version}` 中的 `.app`、`app.asar` 与关键运行时包。GitHub Actions 发布流程见 [`release.md`](./release.md)。
 
 > `"type":"module"`、`"main":"dist/main/index.js"`。**绝不引入** native 依赖（`better-sqlite3` 等）以免触发 `electron-rebuild`。
 >
