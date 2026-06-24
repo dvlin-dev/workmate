@@ -43,17 +43,22 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   }
 
   const hasTrace = (message.toolTrace?.length ?? 0) > 0;
-  const showThinking = message.pending && !message.text && !hasTrace;
+  // 最终回复还没开始流式（pending 且尚无文本）= 仍在思考 / 执行工具
+  const working = !!message.pending && !message.text;
 
   return (
     <div className="group flex w-full flex-col gap-2">
-      {showThinking && (
-        <span className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader size={15} /> 搭子正在思考…
-        </span>
+      {hasTrace ? (
+        // 有 trace：loading 收进清单末尾的「正在处理…」转圈行
+        <ToolHint items={message.toolTrace!} pending={working} />
+      ) : (
+        working && (
+          // 还没产出任何 trace：独立的「思考中」提示
+          <span className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader size={15} /> 搭子正在思考…
+          </span>
+        )
       )}
-
-      {hasTrace && <ToolHint items={message.toolTrace!} />}
 
       {message.text &&
         (message.pending ? (

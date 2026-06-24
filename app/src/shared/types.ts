@@ -23,7 +23,10 @@ export interface Goal {
   id: string;
   title: string;
   status: GoalStatus;
-  /** 0–100，由 agent 归因更新 */
+  /**
+   * 0–100，**派生值**：由待办完成比例自动计算（round(done/total*100)），不手动赋值。
+   * 无待办时跟随 status（completeGoal 标记完成→100，否则 0）。详见 store.syncGoalProgress。
+   */
   progress: number;
   tasks: Task[];
   createdAt: string;
@@ -64,4 +67,6 @@ export interface Snapshot {
 export interface ToolTraceItem {
   tool: string;
   summary: string;
+  /** 该工具是否成功；false=失败/降级（看板足迹以告警样式区分）。缺省视为成功 */
+  ok?: boolean;
 }
