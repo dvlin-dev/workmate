@@ -139,6 +139,12 @@ export function KanbanPanel() {
       </header>
       <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-4 p-4">
+          {/* 今日聚焦置顶：目标多时也不会被挤到看不见，进面板即见「今天要做什么」 */}
+          <div>
+            <h3 className="mb-2 text-sm font-semibold">☀️ 今日聚焦</h3>
+            <TodayFocus tasks={todayFocus} />
+          </div>
+          <div className="border-t border-border-muted/70" />
           <div className="flex flex-col gap-2">
             {goals.length === 0 && (
               <div className="rounded-xl border border-dashed border-border-muted p-6 text-center text-xs text-muted-foreground">
@@ -149,10 +155,6 @@ export function KanbanPanel() {
               <GoalCard key={g.id} goal={g} />
             ))}
             <AddGoal />
-          </div>
-          <div>
-            <h3 className="mb-2 text-sm font-semibold">☀️ 今日聚焦</h3>
-            <TodayFocus tasks={todayFocus} />
           </div>
         </div>
       </ScrollArea>
