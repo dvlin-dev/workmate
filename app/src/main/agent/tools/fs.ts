@@ -2,6 +2,8 @@
  * 执行工具 · 文件与检索（read/write/edit/list_dir/glob/grep）。
  * 范式参考成熟实现：tool()+zod，execute 经 runContext.context 取 workspace 定位 cwd。
  * 本期"开放最大权限"：默认锚定工作区，但允许绝对路径（与本机一致），不做硬隔离/审批。
+ *
+ * 工具契约 + 模型面 {error}/{note}（用于 agent 自救）一律英文；trace summary 是看板 UI 文案，保持中文。
  */
 
 import { promises as fs } from 'node:fs';
@@ -26,23 +28,29 @@ function trace(rc: RunContext<AgentContext> | undefined, tool: string, summary: 
 
 const readFileTool = defineTool({
   name: 'read_file',
-  description: '读取工作区内（或绝对路径）文件内容。大文件按行截断。',
+  description:
+    "Read a text file in the workspace (or an absolute path). Large files are truncated. To search contents use grep; to list a directory use list_dir.",
   parameters: z.object({
-    path: z.string().describe('相对工作区或绝对路径'),
-    offset: z.number().int().min(0).optional().describe('起始行（0-based）'),
-    limit: z.number().int().min(1).max(2000).optional().describe('读取行数'),
+    path: z.string().describe('Path relative to the workspace root (NOT bash cwd), or absolute'),
+    offset: z.number().int().min(0).optional().describe('Start line, 0-based'),
+    limit: z.number().int().min(1).max(2000).optional().describe('Number of lines to read'),
   }),
   execute: async ({ path: target, offset, limit }, rc?: RunContext<AgentContext>) => {
     const abs = resolveInWorkspace(rootOf(rc), target);
     const stat = await fs.stat(abs).catch(() => null);
-    if (!stat) return { error: `文件不存在：${target}` };
+    if (!stat) return { error: `File not found: ${target}. Use glob or list_dir to locate it.` };
     if (stat.size > MAX_READ_BYTES && offset === undefined && limit === undefined) {
       const head = await fs.readFile(abs, 'utf-8').catch(() => '');
       trace(rc, 'read_file', `读取 ${target}（已截断）`);
-      return { path: target, truncated: true, content: head.slice(0, MAX_READ_BYTES) };
+      return {
+        path: target,
+        truncated: true,
+        content: head.slice(0, MAX_READ_BYTES),
+        note: 'File is large and was truncated; pass offset/limit to read a specific range.',
+      };
     }
     const raw = await fs.readFile(abs, 'utf-8').catch((e) => {
-      throw new Error(`读取失败：${e instanceof Error ? e.message : String(e)}`);
+      throw new Error(`Read failed: ${e instanceof Error ? e.message : String(e)}`);
     });
     let content = raw;
     if (offset !== undefined || limit !== undefined) {
@@ -57,10 +65,11 @@ const readFileTool = defineTool({
 
 const writeFileTool = defineTool({
   name: 'write_file',
-  description: '写入/覆盖文件（缺失目录自动创建）。用于产出 HTML、文档等。',
+  description:
+    'Write or overwrite a file (parent dirs are created). Use for whole new files or full rewrites — to change a small unique snippet use edit_file, to run a command use bash. Good for producing HTML, docs, scripts.',
   parameters: z.object({
-    path: z.string().describe('相对工作区或绝对路径'),
-    content: z.string().describe('完整文件内容'),
+    path: z.string().describe('Path relative to the workspace root, or absolute'),
+    content: z.string().describe('Full file content'),
   }),
   execute: async ({ path: target, content }, rc?: RunContext<AgentContext>) => {
     const abs = resolveInWorkspace(rootOf(rc), target);
@@ -73,19 +82,22 @@ const writeFileTool = defineTool({
 
 const editFileTool = defineTool({
   name: 'edit_file',
-  description: '把文件中的 old 文本替换为 new 文本（old 必须唯一匹配）。',
+  description:
+    'Replace a unique snippet in a file: old must match exactly once. For whole-file writes use write_file.',
   parameters: z.object({
-    path: z.string().describe('相对工作区或绝对路径'),
-    old: z.string().min(1).describe('要替换的原文本（需唯一）'),
-    new: z.string().describe('替换后的新文本'),
+    path: z.string().describe('Path relative to the workspace root, or absolute'),
+    old: z.string().min(1).describe('Exact text to replace; must occur exactly once in the file'),
+    new: z.string().describe('Replacement text'),
   }),
   execute: async ({ path: target, old, new: next }, rc?: RunContext<AgentContext>) => {
     const abs = resolveInWorkspace(rootOf(rc), target);
     const raw = await fs.readFile(abs, 'utf-8').catch(() => null);
-    if (raw === null) return { error: `文件不存在：${target}` };
+    if (raw === null) return { error: `File not found: ${target}. Use glob or list_dir to locate it.` };
     const count = raw.split(old).length - 1;
-    if (count === 0) return { error: 'old 文本未匹配' };
-    if (count > 1) return { error: `old 文本匹配到 ${count} 处，需唯一` };
+    if (count === 0)
+      return { error: 'old text not found — read_file first and copy an exact, unique snippet.' };
+    if (count > 1)
+      return { error: `old text matched ${count} times — include more surrounding context to make it unique.` };
     await fs.writeFile(abs, raw.replace(old, next), 'utf-8');
     trace(rc, 'edit_file', `已编辑 ${target}`);
     return { path: target, replaced: 1 };
@@ -94,17 +106,24 @@ const editFileTool = defineTool({
 
 const listDirTool = defineTool({
   name: 'list_dir',
-  description: '列出目录内容（相对工作区或绝对路径）。',
-  parameters: z.object({ path: z.string().default('.').describe('目录路径') }),
+  description:
+    'List a single directory\'s entries (relative to the workspace root, or absolute). To match paths recursively use glob.',
+  parameters: z.object({ path: z.string().default('.').describe('Directory path; defaults to workspace root') }),
   execute: async ({ path: target }, rc?: RunContext<AgentContext>) => {
     const abs = resolveInWorkspace(rootOf(rc), target);
     const entries = await fs.readdir(abs, { withFileTypes: true }).catch(() => null);
-    if (!entries) return { error: `目录不存在：${target}` };
+    if (!entries) return { error: `Directory not found: ${target}. Use glob or list_dir on a parent to locate it.` };
     const items = entries
       .slice(0, MAX_LIST_ENTRIES)
       .map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' }));
+    const truncated = entries.length > MAX_LIST_ENTRIES;
     trace(rc, 'list_dir', `列出 ${target}（${items.length}）`);
-    return { path: target, entries: items, truncated: entries.length > MAX_LIST_ENTRIES };
+    return {
+      path: target,
+      entries: items,
+      truncated,
+      ...(truncated ? { note: `Only the first ${MAX_LIST_ENTRIES} entries are shown; list a narrower path.` } : {}),
+    };
   },
 });
 
@@ -137,10 +156,11 @@ function globToRegExp(pattern: string): RegExp {
 
 const globTool = defineTool({
   name: 'glob',
-  description: '按 glob 模式匹配工作区文件名（如 **/*.html）。',
+  description:
+    'Match workspace file paths by glob pattern (e.g. **/*.html). To search file CONTENTS use grep; to list one directory use list_dir.',
   parameters: z.object({
-    pattern: z.string().describe('glob 模式'),
-    cwd: z.string().optional().describe('相对工作区的起始目录'),
+    pattern: z.string().describe('Glob pattern, e.g. **/*.html or src/**/*.ts'),
+    cwd: z.string().optional().describe('Optional start directory relative to the workspace root'),
   }),
   execute: async ({ pattern, cwd }, rc?: RunContext<AgentContext>) => {
     const root = rootOf(rc);
@@ -150,16 +170,23 @@ const globTool = defineTool({
     const re = globToRegExp(pattern);
     const matches = all.filter((p) => re.test(p)).slice(0, MAX_LIST_ENTRIES);
     trace(rc, 'glob', `glob ${pattern}（${matches.length}）`);
-    return { pattern, matches };
+    return {
+      pattern,
+      matches,
+      ...(matches.length >= MAX_LIST_ENTRIES
+        ? { note: `Capped at ${MAX_LIST_ENTRIES} matches; narrow the pattern or cwd.` }
+        : {}),
+    };
   },
 });
 
 const grepTool = defineTool({
   name: 'grep',
-  description: '在工作区文件内容中检索正则/字符串，返回命中行。',
+  description:
+    'Search file CONTENTS by JavaScript regular expression across the workspace and return matching lines. To match file NAMES/paths use glob instead.',
   parameters: z.object({
-    pattern: z.string().describe('正则或字符串'),
-    path: z.string().optional().describe('限定目录/文件（相对工作区）'),
+    pattern: z.string().describe('JS RegExp source, e.g. function\\s+\\w+ (passed to new RegExp)'),
+    path: z.string().optional().describe('Optional file or directory to limit the search (relative to workspace root)'),
   }),
   execute: async ({ pattern, path: target }, rc?: RunContext<AgentContext>) => {
     const root = rootOf(rc);
@@ -168,13 +195,13 @@ const grepTool = defineTool({
     try {
       re = new RegExp(pattern);
     } catch {
-      return { error: '非法正则' };
+      return { error: 'Invalid regular expression. Provide a valid JS RegExp source, e.g. TODO|FIXME.' };
     }
     const stat = await fs.stat(base).catch(() => null);
     const rels: string[] = [];
     if (stat?.isFile()) rels.push(path.relative(root, base));
     else if (stat?.isDirectory()) await walk(base, root, rels, 2000);
-    else return { error: `路径不存在：${target}` };
+    else return { error: `Path not found: ${target}. Use glob or list_dir to locate it.` };
 
     const hits: { file: string; line: number; text: string }[] = [];
     for (const rel of rels) {

@@ -1,5 +1,5 @@
 /**
- * 编排器：一次对话 = 落原始事件 → run(agent, [user], {maxTurns:8, context}) → {reply,snapshot,toolTrace}。
+ * 编排器：一次对话 = 落原始事件 → run(agent, [user], {maxTurns:MAX_TURNS, context}) → {reply,snapshot,toolTrace}。
  * 提供非流式 runTurn（测试用）与流式 runTurnStream（IPC 用，逐字 + 工具足迹增量）。
  * 真相源：docs/reference/agent-runtime.md §5。
  */

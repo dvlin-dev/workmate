@@ -18,7 +18,7 @@ const MAX_OUTPUT = 30_000; // 字符上限，超出头尾保留
 function clamp(text: string): string {
   if (text.length <= MAX_OUTPUT) return text;
   const half = Math.floor(MAX_OUTPUT / 2);
-  return `${text.slice(0, half)}\n…（输出过长，已截断 ${text.length - MAX_OUTPUT} 字符）…\n${text.slice(-half)}`;
+  return `${text.slice(0, half)}\n…(output truncated, ${text.length - MAX_OUTPUT} chars elided — re-run filtered with head/tail/grep or redirect to a file then read_file it)…\n${text.slice(-half)}`;
 }
 
 interface RunResult {
@@ -58,15 +58,16 @@ function runShell(command: string, cwd: string, timeout: number): Promise<RunRes
 const bashTool = defineTool({
   name: 'bash',
   description: [
-    '在工作区目录执行 shell 命令（最大权限，无沙箱）。',
-    '默认 cwd 为工作区根；可用 cwd 指定相对路径。',
-    '适合：文件操作、git、npx/pnpm、运行脚本、预览产物等。',
-    '长输出请用 head/tail/grep 过滤或重定向到文件再读。',
+    'Run a shell command in the workspace (full permissions, no sandbox; default cwd = workspace root).',
+    'Good for: running commands, builds, git, npx/pnpm, scripts, previewing artifacts.',
+    'For reading/searching/editing files, prefer the dedicated tools (read_file/glob/grep/edit_file) — they return structured, capped output.',
+    'For long output, filter with head/tail/grep or redirect to a file then read it.',
+    'After running, check exitCode/timedOut before reporting done — non-zero or timeout means it failed.',
   ].join('\n'),
   parameters: z.object({
-    command: z.string().min(1).describe('完整命令（含参数）'),
-    cwd: z.string().optional().describe('相对工作区的工作目录'),
-    timeout: z.number().int().min(1000).max(MAX_TIMEOUT).default(DEFAULT_TIMEOUT).describe('超时毫秒'),
+    command: z.string().min(1).describe('Full command line including arguments'),
+    cwd: z.string().optional().describe('Working directory relative to the workspace root'),
+    timeout: z.number().int().min(1000).max(MAX_TIMEOUT).default(DEFAULT_TIMEOUT).describe('Timeout in milliseconds'),
   }),
   execute: async ({ command, cwd, timeout }, rc?: RunContext<AgentContext>) => {
     const root = rc?.context?.workspace?.root ?? getWorkspace().root;

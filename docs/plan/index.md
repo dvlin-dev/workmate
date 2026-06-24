@@ -5,6 +5,7 @@
 - [milestones.md](./milestones.md) — 8 个里程碑、验收标准、测试映射（先闭环后加分）
 - [task-breakdown.md](./task-breakdown.md) — 有序、可执行、带 DoD 的任务清单（goal 模式逐条推进）
 - [skills-integration.md](./skills-integration.md) — Skills（技能）集成方案，**待审核**：最小本地闭环 + agent skill 工具 + 设置页管理
+- [prompt-tools-generalization.md](./prompt-tools-generalization.md) — 系统 Prompt + 工具定义「通用化」优化方案，**已落地**：通用优先身份（目标管理为一等旗舰）+ 英文工具契约（prompt 主体仍中文）+ 搭子 warmth↔可靠性对冲 + few-shot
 
 ## 执行总原则
 

@@ -39,8 +39,9 @@ async function fetchWithTimeout(url: string, ms: number): Promise<Response> {
 
 const webFetchTool = defineTool({
   name: 'web_fetch',
-  description: '抓取一个网页 URL，返回其纯文本内容（已去标签、截断）。',
-  parameters: z.object({ url: z.string().url().describe('http(s) URL') }),
+  description:
+    'Fetch a web page by URL and return its text content (HTML stripped, truncated). Use when you already have a URL; to find URLs first use web_search.',
+  parameters: z.object({ url: z.string().url().describe('http(s) URL to fetch') }),
   execute: async ({ url }, rc?: RunContext<AgentContext>) => {
     try {
       const res = await fetchWithTimeout(url, FETCH_TIMEOUT);
@@ -49,20 +50,21 @@ const webFetchTool = defineTool({
       rc?.context?.trace.push({ tool: 'web_fetch', summary: `抓取 ${url}` });
       return { url, text: stripHtml(html).slice(0, MAX_TEXT) };
     } catch (e) {
-      return { url, error: e instanceof Error ? e.message : '抓取失败' };
+      return { url, error: e instanceof Error ? e.message : 'Fetch failed' };
     }
   },
 });
 
 const webSearchTool = defineTool({
   name: 'web_search',
-  description: '联网搜索关键词，返回标题+链接列表（轻量，无需 key）。',
-  parameters: z.object({ query: z.string().min(1).describe('搜索词') }),
+  description:
+    'Search the web for a keyword and return a list of {title, url} results (lightweight, no API key). Use to find pages; to read a specific URL use web_fetch.',
+  parameters: z.object({ query: z.string().min(1).describe('Search keyword(s)') }),
   execute: async ({ query }, rc?: RunContext<AgentContext>) => {
     try {
       const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
       const res = await fetchWithTimeout(url, FETCH_TIMEOUT);
-      if (!res.ok) return { query, results: [], note: `搜索不可用：HTTP ${res.status}` };
+      if (!res.ok) return { query, results: [], note: `Search unavailable: HTTP ${res.status}` };
       const html = await res.text();
       const results: { title: string; url: string }[] = [];
       const re = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
@@ -71,9 +73,13 @@ const webSearchTool = defineTool({
         results.push({ url: m[1]!, title: stripHtml(m[2]!) });
       }
       rc?.context?.trace.push({ tool: 'web_search', summary: `搜索「${query}」` });
-      return { query, results };
+      return {
+        query,
+        results,
+        ...(results.length === 0 ? { note: 'No results — try rephrasing the query.' } : {}),
+      };
     } catch (e) {
-      return { query, results: [], note: e instanceof Error ? e.message : '搜索失败' };
+      return { query, results: [], note: e instanceof Error ? e.message : 'Search failed' };
     }
   },
 });

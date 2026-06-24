@@ -50,6 +50,7 @@ interface AgentContext {
 ## 4. Tool 目录（spec — agent 契约）
 
 所有工具统一经 `defineTool({ name, description, parameters: zodSchema, execute(input, runContext) })`（`agent/tools/define.ts`）定义——它在 agents-core 的 `tool()` 之上包一层**执行埋点**：计时、入参、成功/失败一律写 `ctx.toolLogger`（本地 JSONL，见 §4.1）。新增工具用 `defineTool` 即自动获得日志，无需各自接线。`execute` 经 `runContext.context` 拿 `AgentContext`，返回结构化对象。
+**语言策略**：工具 `name`/`description`/全部 `.describe()` 与模型面自救信号 `{error}`/`{note}` 用**英文**（模型契约跨 provider 对齐更稳）；`ctx.trace.push({summary})`（看板 UI）与会被转述给用户的权限引导文案保持中文。下表为 spec 摘要，非逐字英文原文。
 **进度是派生值**：没有"设置百分比"的工具——进度由 `store` 按"完成待办/总待办"自动算（详见 product-design §5）。想推进进度只能 `complete_task`（完成某待办）或 `complete_goal`（整体收口到 100%）。
 **事件不变量**：`create_goal`/`complete_task`/`complete_goal` 在 `execute` 内自动 `store.appendEvent(...)`（落 `goal_created`/`task_done`/`progress_update`）；纯笔记用 `log_event`。每个 `execute` 末尾 `ctx.trace.push({tool,summary,ok?})`（失败项 `ok:false`，看板足迹以告警样式区分）。
 
@@ -76,8 +77,8 @@ interface AgentContext {
 
 agents-core 标准范式（`new Agent({ name:'Workmate', instructions: buildSystemPrompt(snapshot), model: buildModel(config), tools })`）+ `run()` 调用：
 
-- `runTurn(text, deps)`：先检查 `apiKey`（除非单测显式 `allowMockModel`）；无 key 抛 `MissingApiKeyError` 且不落事件 → 有 key 后 `store.appendEvent({kind:'note', rawText:text, summary:text})`（录入即落原始事件）→ 构建 agent + `AgentContext{trace:[]}` → `run(agent, [user(text)], { maxTurns: 8, context })` → 返回 `{ reply: result.finalOutput ?? '', snapshot: store.getSnapshot(), toolTrace: ctx.trace }`。
-- `maxTurns` 即循环上限兜底：轻量归因默认 8；开放任务（skill + 文件/bash 多步产出）放宽到 **30**（`orchestrator.MAX_TURNS`）。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
+- `runTurn(text, deps)`：先检查 `apiKey`（除非单测显式 `allowMockModel`）；无 key 抛 `MissingApiKeyError` 且不落事件 → 有 key 后 `store.appendEvent({kind:'note', rawText:text, summary:text})`（录入即落原始事件）→ 构建 agent + `AgentContext{trace:[]}` → `run(agent, [user(text)], { maxTurns: MAX_TURNS, context })` → 返回 `{ reply: result.finalOutput ?? '', snapshot: store.getSnapshot(), toolTrace: ctx.trace }`。
+- `maxTurns` 即循环上限兜底：**单一常量 `orchestrator.MAX_TURNS = 30`**，同时作用于 `runTurn` 与 `runTurnStream`（无意图分类、无 per-turn 选择）。开放任务（skill + 文件/bash 多步产出）也在这 30 轮内。prompt 不引用任何轮次预算，eagerness 按任务形状把握（见 prompts.md §1）。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
 - 每轮后 store 已被 tool 改写并落盘；IPC 层负责 `broadcast(snapshot:changed)`（见 ipc-contract.md §4）。
 - **流式（已实现）**：`runTurnStream(text, deps, onEvent, signal)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`，并紧接着 `onEvent({kind:'snapshot', snapshot: store.getSnapshot()})` 把最新看板下发（右侧面板实时刷新，不等整轮结束）。IPC `agent:sendMessage` 用 `e.sender.send` 把 `agent:chunk` 只回发起窗口。显式测试 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
 - **超时与取消（关键）**：agents-core 在 abort 时是**优雅 close 流**（`for await` 正常结束、`stream.completed` resolve、不抛错），所以超时/取消**必须在循环结束后查 `signal.aborted`**：reason 为 `TimeoutError` → 抛出（IPC 映射 `LLM_TIMEOUT`，兑现 §5 降级）；reason 为 `AbortError`（用户点「停止」走 `agent:cancel`）→ 保留已收到的部分文本、静默收尾。IPC 层每轮建一个 `AbortController` + `AGENT_TIMEOUT_MS` 定时器，`agent:cancel` abort 它。
