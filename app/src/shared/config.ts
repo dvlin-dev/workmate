@@ -6,9 +6,9 @@
 
 import { z } from 'zod';
 
-/** 默认 baseURL：通用 OpenAI 兼容端点；apiKey 由用户在设置页填写。绝不硬编码密钥。
- *  换成任意 OpenAI 兼容服务（自建网关 / 第三方）只需改 baseURL + apiKey + model。 */
-export const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+/** 默认 baseURL：百度内部 OneAPI 网关（比赛用，临时）。apiKey 由用户在设置页填写，绝不硬编码密钥。
+ *  开源/对外时改回通用 OpenAI 兼容端点（如 https://api.openai.com/v1）即可。 */
+export const DEFAULT_BASE_URL = 'https://oneapi-comate.baidu-int.com/v1';
 /** 可改占位模型名（用户在设置页按其服务可用模型调整） */
 export const DEFAULT_MODEL = 'gpt-5.5';
 

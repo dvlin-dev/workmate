@@ -127,8 +127,18 @@ export function SettingsDialog({
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="sk-..."
             />
+            {/* 百度内部比赛引导：指向内部 token 页复制 key（临时） */}
             <p className="text-xs text-muted-foreground">
-              任意 OpenAI 兼容服务的 key（OpenAI / 自建网关 / 第三方均可），仅保存在本地。
+              百度内部用户：去{' '}
+              <a
+                href="https://oneapi-comate.baidu-int.com/token"
+                target="_blank"
+                rel="noreferrer"
+                className="text-brand underline underline-offset-2 hover:opacity-80"
+              >
+                oneapi-comate.baidu-int.com/token
+              </a>{' '}
+              复制你的 key 粘贴进来。也支持任意 OpenAI 兼容服务的 key。仅保存在本地。
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
