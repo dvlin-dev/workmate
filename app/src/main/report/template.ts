@@ -1,28 +1,13 @@
 /**
- * 周报生成（ReportService 实现）。
- * 有 key → generateText（叙事 prompt）；无 key / 失败 → 确定性四段 markdown 降级。
- * 真相源：docs/reference/prompts.md §2、agent-runtime.md §7。
+ * 周报「确定性模板」：纯函数（ReportMaterial in → markdown out 与 WeeklyPlan → ReportMaterial），
+ * 无 LLM、无 Store、无 electron——既是无 key/失败时的降级模板，也是周报里最密集、可直接单测的业务逻辑。
+ * 真相源：docs/reference/prompts.md §2。
  */
 
-import { generateText } from 'ai';
-import { hasApiKey } from '@shared/config';
 import type { Goal, ProgressEvent, WeeklyPlan } from '@shared/types';
-import type { ReportService } from './agent/context';
-import type { WorkmateStore } from './store';
-import { buildRawModel } from './agent/model';
+import { addDays } from '../date';
 
-const REPORT_TIMEOUT_MS = 60_000;
-
-const REPORT_SYSTEM = `你是「Workmate」，基于用户这一周**已记录的工作**（目标、待办、进度事件）写一份**叙事性**周报（不是干巴巴的清单）。
-要求：
-- 用中文，markdown 格式，分四个二级标题：## 本周完成、## 进展亮点、## 风险与卡点、## 下周计划。
-- 本周完成：结合已完成的目标/待办与事件 summary 叙述，突出"做成了什么"——不限于某一个目标，有价值的进展都可纳入。
-- 进展亮点：推进明显的目标或关键节点。
-- 风险与卡点：长期无进展、或事件里显式提到受阻的；没有就写"暂无明显卡点"。
-- 下周计划：未完成的目标/待办，简要展望。
-- 只依据给到的材料叙述，不编造未发生或未记录的事；没有数据的段落如实说明。语气平实、第一人称、可直接发给同事或上级。`;
-
-interface ReportMaterial {
+export interface ReportMaterial {
   weekOf: string;
   rangeLabel: string;
   goals: Array<{
@@ -34,17 +19,8 @@ interface ReportMaterial {
   events: Array<{ time: string; kind: ProgressEvent['kind']; summary: string; goalTitle?: string }>;
 }
 
-function pad2(n: number): string {
-  return String(n).padStart(2, '0');
-}
-
-function addDays(ymd: string, days: number): string {
-  const d = new Date(`${ymd}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-function assembleMaterial(week: WeeklyPlan): ReportMaterial {
+/** 把一周的目标树 + 进度流整理成喂给 LLM / 模板的只读材料 */
+export function assembleMaterial(week: WeeklyPlan): ReportMaterial {
   const titleById = new Map(week.goals.map((g) => [g.id, g.title]));
   return {
     weekOf: week.weekOf,
@@ -64,7 +40,7 @@ function assembleMaterial(week: WeeklyPlan): ReportMaterial {
   };
 }
 
-/** 无 key / 失败时的确定性 markdown（不使用对话 mock，保证单测稳定） */
+/** 无 key / 失败时的确定性四段 markdown（不使用对话 mock，保证单测稳定） */
 export function deterministicReport(material: ReportMaterial): string {
   const lines: string[] = [`# 本周周报（${material.rangeLabel}）`, ''];
 
@@ -112,31 +88,4 @@ export function deterministicReport(material: ReportMaterial): string {
   lines.push(nextWeek.length ? nextWeek.join('\n') : '- 下周计划待补充。');
 
   return lines.join('\n');
-}
-
-export function createReportService(store: WorkmateStore): ReportService {
-  return {
-    async generate(weekOf?: string): Promise<string> {
-      const week = weekOf ? store.getWeek(weekOf) : store.getCurrentWeekData();
-      if (!week) {
-        return `# 本周周报\n\n## 本周完成\n- 未找到该周（${weekOf}）的数据。`;
-      }
-      const material = assembleMaterial(week);
-      const config = store.getConfig();
-      if (!hasApiKey(config)) {
-        return deterministicReport(material);
-      }
-      try {
-        const { text } = await generateText({
-          model: buildRawModel(config.llm),
-          system: REPORT_SYSTEM,
-          prompt: `这是本周（${material.rangeLabel}）的原始材料 JSON，请据此生成周报：\n${JSON.stringify(material)}`,
-          abortSignal: AbortSignal.timeout(REPORT_TIMEOUT_MS),
-        });
-        return text.trim() ? text : deterministicReport(material);
-      } catch {
-        return deterministicReport(material);
-      }
-    },
-  };
 }
