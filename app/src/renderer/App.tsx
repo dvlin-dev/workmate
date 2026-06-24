@@ -23,9 +23,11 @@ export default function App() {
     void loadConfig();
     const unsubSnapshot = subscribe();
     const unsubChunks = subscribeChunks();
+    const unsubSettings = window.workmateAPI.onOpenSettings(() => setSettingsOpen(true));
     return () => {
       unsubSnapshot();
       unsubChunks();
+      unsubSettings();
     };
   }, [hydrate, subscribe, subscribeChunks, loadConfig]);
 
@@ -39,7 +41,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="window-drag-region flex h-11 shrink-0 items-center justify-between px-4">
+      <header className="window-drag-region flex h-11 shrink-0 items-center justify-between pl-20 pr-4">
         <span className="text-sm font-semibold">Workmate · 工作搭子</span>
         <Button
           variant="ghost"
