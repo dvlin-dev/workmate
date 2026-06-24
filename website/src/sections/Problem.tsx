@@ -2,19 +2,19 @@ import { useScrollReveal, useScrollRevealGroup } from '../hooks/useScrollReveal'
 
 const PROBLEMS = [
   {
-    emoji: '🧠',
-    title: '计划只在脑子里，越想越乱',
-    desc: '本周要做的几件事，散在便利贴、群消息和半截文档里，从没被结构化成一张能看清全貌的目标树。想拉个看板，又懒得一张张拖卡片、填字段。',
+    emoji: '🎯',
+    title: '目标定了，就没人盯了',
+    desc: '周一立的几个目标，记在便利贴和文档里，没几天就没人回看。它们从不被结构化，也没人替你跟踪到底推进到哪了。',
   },
   {
-    emoji: '🌫️',
-    title: '进展随手就忘，没人替你记',
-    desc: '「连接池那个 bug 今天定位到了」——说完就埋头继续干。一整天推进了一堆，到了晚上却想不起白天到底做成了什么。',
+    emoji: '🐌',
+    title: '进展无人推，目标悄悄停摆',
+    desc: '一忙就忘了某个目标好几天没动。等想起来，deadline 已经贴脸——没人在它停滞时提醒你、推你一把。',
   },
   {
-    emoji: '📝',
-    title: '周五对着空文档，全靠硬回忆',
-    desc: '翻 commit、扒聊天记录、对着空白文档发呆，把一周努力挤成三行流水账。明明做了很多，写出来却像没干活。',
+    emoji: '📉',
+    title: '周五才发现，这周没怎么推进',
+    desc: '回看一周，说不清每个目标到底走了多远。写周报时对着空文档硬回忆，把零散努力挤成三行流水账。',
   },
 ];
 
@@ -25,7 +25,7 @@ export function Problem() {
     <section className="px-4 py-20 sm:px-6 sm:py-24">
       <div className="mx-auto max-w-5xl">
         <h2 ref={headRef} className="mb-12 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-          周报难写，不是因为你这周没干活
+          定目标不难，难的是有人替你盯着它往前走
         </h2>
         <div ref={ref} className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           {PROBLEMS.map((p) => (
