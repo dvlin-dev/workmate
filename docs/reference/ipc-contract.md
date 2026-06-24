@@ -38,6 +38,10 @@ type AppErrorCode =
 | `config:set` | invoke | `DeepPartial<AppConfig>` | `AppResult<AppConfig>`（合并后全量） |
 | `config:testProvider` | invoke | `{ baseURL, apiKey, model }`（无状态：用表单值，不读/写 store） | `AppResult<{ message: string }>` |
 | `reminders:write` | invoke | `{ taskId: string }` | `AppResult<{ reminderId: string }>` |
+| `skills:list` | invoke | — | `AppResult<SkillSummary[]>` |
+| `skills:getDetail` | invoke | `{ name }` | `AppResult<SkillDetail>` |
+| `skills:setEnabled` | invoke | `{ name, enabled }` | `AppResult<SkillSummary>` |
+| `skills:openDirectory` | invoke | `{ name }` | `AppResult<void>`（shell 打开技能目录） |
 | `nudge:notify` | event(主→渲染) | — | `NudgePayload`（点击通知唤起窗口） |
 
 ## 3. `WorkmateApi` 接口（契约，`shared/ipc.ts`）
@@ -65,6 +69,7 @@ interface WorkmateApi {
   report:    { generate(weekOf?: string): Promise<AppResult<{ markdown: string }>> }
   config:    { get(): Promise<AppResult<AppConfig>>; set(patch): Promise<AppResult<AppConfig>>; testProvider(input: TestProviderInput): Promise<AppResult<{ message: string }>> }
   reminders: { write(taskId: string): Promise<AppResult<{ reminderId: string }>> }
+  skills:    { list(): Promise<AppResult<SkillSummary[]>>; getDetail(name): Promise<AppResult<SkillDetail>>; setEnabled(name, enabled): Promise<AppResult<SkillSummary>>; openDirectory(name): Promise<AppResult<void>> }
   nudge:     { onNotify(h: (n: NudgePayload) => void): () => void }
 }
 // 渲染层：declare global { interface Window { workmateAPI: WorkmateApi } }

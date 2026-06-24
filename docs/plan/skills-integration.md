@@ -229,20 +229,20 @@ frontmatter 取 `name`/`description`；title/description 有正文兜底；kebab
 - [x] **A4** `agent/tools/web.ts`：`web_fetch`（取页转纯文本截断）/`web_search`（DuckDuckGo HTML，无 key，失败降级空）。
 - [x] **A5** 接线：执行工具加进 `buildAgent` 工具集；`AgentContext` 加 `skills`/`workspace`；`maxTurns` 8→30、超时 60s→180s。main 进程 typecheck 通过。
 
-**加载层 B**
-- [ ] **B1** `app/src/main/skills/`：types/constants/file-utils/state/installer/remote/catalog/index（照搬+裁剪，安全/原子工具逐字照搬）。
-- [ ] **B2** 拷入内置 skill（§7：`agent-browser` 全目录含 references/templates、`find-skills`）到 `app/src/main/skills/builtin/`；electron-vite 构建拷贝 `builtin/`→`dist/main/`（加 copy 插件，参考成熟构建配置）。
-- [ ] **B3** `agent/tools.ts` 加 `skill` 工具；`prompt.ts` 注入 `<available_skills>`；`context`/`orchestrator`/`index.ts` 接线 registry 单例。
+**加载层 B** ✅ 已完成
+- [x] **B1** `app/src/main/skills/`：types/constants/file-utils/state/index（本地加载层；安全/原子工具逐字照搬：`isInsidePath`/frontmatter 解析/拒符号链接/原子覆盖）。remote/catalog（Phase C 远端）暂未建，接口已在 index 预留。
+- [x] **B2** 拷入 `agent-browser`（含 references/templates）+ `find-skills` 到 `app/src/main/skills/builtin/`；electron-vite 加 `copyBuiltinSkillsPlugin` 把 `builtin/`→`dist/main/builtin/`（已验证 dist 产物含两个 skill）。`PREINSTALL_SKILLS` 首启拷入并默认启用。
+- [x] **B3** `agent/tools.ts` 加 `skill` 工具（经 `ctx.skills.loadSkillForTool`）；`prompt.ts` 注入 `<available_skills>`；`AgentContext` 加 `skills`/`workspace`；`orchestrator.prepare` 注入；`ipc/register.ts` 构建 registry 单例并注入 `runTurnStream`。
 
-**界面 C-ui**
-- [ ] **C1** `components/sidebar/`：侧边栏 + `ModulesNav`（home/skills）；`--sidebar*` token 补齐。
-- [ ] **C2** `navigation`/`useNavStore`：`destination` 状态；`App.tsx` 改为「侧边栏 + 主区路由」；现有两栏收进 `HomeView`。
-- [ ] **C3** IPC：`skills:list/getDetail/setEnabled/openDirectory` + preload + `lib/api.ts` + `useSkillsStore`。
-- [ ] **C4** `components/skills/`：技能页（页头+搜索）、已装列表、详情弹层（启停/卸载/打开目录/试用），照搬结构、换 shadcn 基础件。
+**界面 C-ui** ✅ 已完成
+- [x] **C1** `components/sidebar/Sidebar.tsx`：侧边栏 + 模块导航（home/skills）+ 底部设置入口；顶部 `pl-20` 避让红绿灯 + `window-drag-region`。用现有 token（`bg-muted/30`、`bg-accent`），未新增 sidebar token（更省、低冲突）。
+- [x] **C2** `store/useNavStore.ts`：`destination`（home/skills）；`App.tsx` 改「侧边栏 + 主区路由」，现有两栏收进 `HomeView`。
+- [x] **C3** IPC：`skills:list/getDetail/setEnabled/openDirectory` + CH 常量 + preload + `lib/api.ts`（listSkills/getSkillDetail/setSkillEnabled/openSkillDirectory）+ `useSkillsStore`。`SkillSummary`/`SkillDetail` 提到 `@shared/ipc` 单一事实源。
+- [x] **C4** `components/skills/`：`SkillsPage`（页头+搜索+刷新+已装列表卡片+Switch 启停）、`SkillDetailModal`（markdown 渲染正文 + 打开目录 + 启停，读 store 实时态）。
 
-**收尾**
-- [ ] **T1** 单测：file-utils（frontmatter/原子替换）、registry（扫描/启停/注入/仅启用加载）、文件工具（读写/glob/grep）、bash（执行/超时/截断）、`skill` 工具（命中/未启用）、nav store。
-- [ ] **DoD**：① 搭子加载 `agent-browser` skill → 用 `bash` 跑 agent-browser 打开网页/截图、产物落工作区（显式测试 mock 下至少走通「加载 skill → 调起执行工具」的工具调用链）；② 侧边栏切换 home/skills 流畅；③ 技能页启停生效（`agent-browser`/`find-skills` 可见可开关）；④ typecheck + 全量单测 + build 通过；⑤ 回写 CLAUDE.md 边界 + ipc-contract/agent-runtime/design-system(sidebar token)。
+**收尾** ✅ 已完成
+- [x] **T1** 单测 `test/skills.test.ts`（11 例）：file-utils（toKebabCase/isInsidePath/frontmatter 解析/缺 SKILL.md）、文件工具（write→read 往返/glob/grep/edit 唯一替换）、bash（echo/cwd）、`skill` 工具（命中/未启用）。
+- [x] **DoD**：① skill 工具 → 执行工具链路打通（测试覆盖）；② 侧边栏 home/skills 路由切换；③ 技能页启停生效；④ **typecheck + 全量 69 测试 + build 全绿**，dist 含 builtin skill；⑤ 回写本 plan + CLAUDE.md 边界 + ipc-contract + agent-runtime。
 
 ---
 

@@ -63,13 +63,16 @@ interface AgentContext {
 | `write_reminder` | `taskId:string` | `{ reminderId } \| { error, needsPermission }` | 写入提醒事项（幂等）；失败不抛，返回 error 让 agent 口头引导授权 |
 | `generate_report` | `weekOf?:string` | `{ markdown }` | 见 §7 |
 | `get_snapshot` | — | `Snapshot` | 自查上下文 |
+| `skill` | `name:string` | `{ name, content, baseDir, files } \| { error }` | 按名加载已启用技能正文（经 `ctx.skills.loadSkillForTool`）；未启用/未找到返回 error |
+
+> **执行工具面（Skills 开放平台，`agent/tools/`）**：除上表外，agent 还装备 `read_file`/`write_file`/`edit_file`/`list_dir`/`glob`/`grep`（`fs.ts`）、`bash`（`bash.ts`，spawn 直执行、cwd=工作区、输出截断、**无沙箱无审批**）、`web_fetch`/`web_search`（`web.ts`）。这些工具读 `AgentContext.workspace.root`（默认 `userData/workspace`）定位 cwd；产物落工作区。技能用 `<available_skills>` 注入 system prompt、由 `skill` 工具按需加载。详见 `docs/plan/skills-integration.md`。
 
 ## 5. Agent + Loop（`agent/agent.ts` + `orchestrator.ts`）
 
 agents-core 标准范式（`new Agent({ name:'Workmate', instructions: buildSystemPrompt(snapshot), model: buildModel(config), tools })`）+ `run()` 调用：
 
 - `runTurn(text, deps)`：先检查 `apiKey`（除非单测显式 `allowMockModel`）；无 key 抛 `MissingApiKeyError` 且不落事件 → 有 key 后 `store.appendEvent({kind:'note', rawText:text, summary:text})`（录入即落原始事件）→ 构建 agent + `AgentContext{trace:[]}` → `run(agent, [user(text)], { maxTurns: 8, context })` → 返回 `{ reply: result.finalOutput ?? '', snapshot: store.getSnapshot(), toolTrace: ctx.trace }`。
-- `maxTurns: 8` 即循环上限兜底。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
+- `maxTurns` 即循环上限兜底：轻量归因默认 8；开放任务（skill + 文件/bash 多步产出）放宽到 **30**（`orchestrator.MAX_TURNS`）。**doom-loop（可选加分）**：加"同 tool+同参连续 N 次即停"。
 - 每轮后 store 已被 tool 改写并落盘；IPC 层负责 `broadcast(snapshot:changed)`（见 ipc-contract.md §4）。
 - **流式（已实现）**：`runTurnStream(text, deps, onEvent, signal)` 用 `run(agent, [user], { stream: true, signal, context })`，`for await` 消费：`raw_model_stream_event.data.type==='output_text_delta'` → 逐字 `onEvent({kind:'text',delta})`；工具执行后 `ctx.trace` 增长 → flush `onEvent({kind:'tool',item})`。IPC `agent:sendMessage` 用 `e.sender.send` 把 `agent:chunk` 只回发起窗口。显式测试 mock 也支持流式（`mock-model.ts` 加 `doStream`，用 `simulateReadableStream` 把 `decide()` 结果切成 text-delta / tool-call part）。非流式 `runTurn` 保留给单测。
 - **超时与取消（关键）**：agents-core 在 abort 时是**优雅 close 流**（`for await` 正常结束、`stream.completed` resolve、不抛错），所以超时/取消**必须在循环结束后查 `signal.aborted`**：reason 为 `TimeoutError` → 抛出（IPC 映射 `LLM_TIMEOUT`，兑现 §5 降级）；reason 为 `AbortError`（用户点「停止」走 `agent:cancel`）→ 保留已收到的部分文本、静默收尾。IPC 层每轮建一个 `AbortController` + `AGENT_TIMEOUT_MS` 定时器，`agent:cancel` abort 它。

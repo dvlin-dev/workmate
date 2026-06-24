@@ -11,3 +11,4 @@ out/
 # 杂项
 *.log
 .DS_Store
+.review_tmp/
