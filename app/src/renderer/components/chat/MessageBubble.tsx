@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { Check, Copy, RotateCcw } from 'lucide-react';
+import type { ToolTraceItem } from '@shared/types';
 import { Markdown } from '../ui/markdown';
 import { Loader } from '../ui/loader';
-import { useChatStore, type ChatMessage } from '../../store/useChatStore';
+import { messageText, useChatStore, type ChatMessage, type MessagePart } from '../../store/useChatStore';
 import { ToolHint } from './ToolHint';
 
 function CopyButton({ text }: { text: string }) {
@@ -29,47 +30,72 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+/**
+ * 有序 parts → 渲染块：相邻工具合并成一个清单块（保留 Workmate 的勾选清单观感），
+ * 文字各自成块，整体严格按到达顺序——这是修复"工具堆顶上、文字堆底下"的关键。
+ */
+type Block = { kind: 'text'; text: string } | { kind: 'tools'; items: ToolTraceItem[] };
+
+function toBlocks(parts: MessagePart[]): Block[] {
+  const blocks: Block[] = [];
+  for (const part of parts) {
+    if (part.kind === 'text') {
+      blocks.push({ kind: 'text', text: part.text });
+    } else {
+      const last = blocks[blocks.length - 1];
+      if (last?.kind === 'tools') last.items.push(part.item);
+      else blocks.push({ kind: 'tools', items: [part.item] });
+    }
+  }
+  return blocks;
+}
+
+function MessageBubbleImpl({ message }: { message: ChatMessage }) {
   const retry = useChatStore((s) => s.retry);
 
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
         <div className="max-w-[82%] whitespace-pre-wrap rounded-2xl bg-secondary px-3.5 py-2.5 text-sm leading-relaxed text-foreground">
-          {message.text}
+          {messageText(message)}
         </div>
       </div>
     );
   }
 
-  const hasTrace = (message.toolTrace?.length ?? 0) > 0;
-  // 最终回复还没开始流式（pending 且尚无文本）= 仍在思考 / 执行工具
-  const working = !!message.pending && !message.text;
+  const blocks = toBlocks(message.parts);
+  const pending = !!message.pending;
+  const lastIndex = blocks.length - 1;
+  const fullText = messageText(message);
 
   return (
     <div className="group flex w-full flex-col gap-2">
-      {hasTrace ? (
-        // 有 trace：loading 收进清单末尾的「正在处理…」转圈行
-        <ToolHint items={message.toolTrace!} pending={working} />
-      ) : (
-        working && (
-          // 还没产出任何 trace：独立的「思考中」提示
-          <span className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader size={15} /> 搭子正在思考…
-          </span>
-        )
-      )}
-
-      {message.text &&
-        (message.pending ? (
-          // 流式进行中：纯文本渲染，避免每个 delta 全量解析半截 markdown（性能 + 防闪烁）
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-            {message.text}
+      {blocks.map((block, i) => {
+        const isLast = i === lastIndex;
+        if (block.kind === 'tools') {
+          // 末尾的工具块在 pending 时显示「正在处理…」转圈行
+          return <ToolHint key={`tools-${i}`} items={block.items} pending={pending && isLast} />;
+        }
+        // 末尾文字块且仍在流式：纯文本 + 光标（避免每个 delta 全量解析半截 markdown）；否则 markdown 定稿
+        return pending && isLast ? (
+          <div
+            key={`text-${i}`}
+            className="whitespace-pre-wrap text-sm leading-relaxed text-foreground"
+          >
+            {block.text}
             <span className="ml-0.5 inline-block h-4 w-[2px] animate-pulse rounded-full bg-foreground/50 align-middle" />
           </div>
         ) : (
-          <Markdown>{message.text}</Markdown>
-        ))}
+          <Markdown key={`text-${i}`}>{block.text}</Markdown>
+        );
+      })}
+
+      {/* 还没产出任何片段：独立的「思考中」提示 */}
+      {blocks.length === 0 && pending && (
+        <span className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader size={15} /> 搭子正在思考…
+        </span>
+      )}
 
       {message.errorText && (
         <div className="flex flex-col items-start gap-1.5 rounded-xl bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -84,11 +110,17 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         </div>
       )}
 
-      {!message.pending && !message.errorText && message.text && (
+      {!pending && !message.errorText && fullText && (
         <div className="-mt-1">
-          <CopyButton text={message.text} />
+          <CopyButton text={fullText} />
         </div>
       )}
     </div>
   );
 }
+
+/**
+ * memo：流式每个 chunk 只让 patch 替换过对象的"那一条"气泡重渲染；
+ * 历史里引用未变的消息整体跳过（避免长对话里每秒多次全量重渲染）。
+ */
+export const MessageBubble = memo(MessageBubbleImpl);
