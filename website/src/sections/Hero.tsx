@@ -27,10 +27,10 @@ export function Hero() {
           ref={titleRef}
           className="mb-6 text-4xl font-extrabold leading-[1.12] tracking-tight text-foreground sm:text-5xl md:text-6xl"
         >
-          你忙你的，
+          这周的目标，
           <br />
           <span className="bg-gradient-to-r from-brand to-brand-light bg-clip-text text-transparent">
-            目标别再悄悄烂尾
+            我陪你一件件做完
           </span>
         </h1>
 
