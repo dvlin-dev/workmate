@@ -19,7 +19,6 @@
     "pack": "electron-vite build && electron-builder --dir",
     "dist:mac": "electron-vite build && electron-builder --mac",
     "dist:mac:arm64": "electron-vite build && electron-builder --mac dmg zip --arm64 --publish never",
-    "dist:mac:x64": "electron-vite build && electron-builder --mac dmg zip --x64 --publish never",
     "smoke:packaged": "node scripts/smoke-check-packaged-app.mjs --app-dir release/${npm_package_version} --require-package @openai/agents --require-package @openai/agents-core --require-package @openai/agents-extensions --require-package ai --require-package electron-store --require-package electron-updater"
   },
   "dependencies": {

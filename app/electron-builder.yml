@@ -15,14 +15,13 @@ mac:
   icon: build/icon.icns
   artifactName: ${productName}-${version}-${arch}.${ext}
   target:
+    # 仅支持 Apple Silicon（M 芯片）；不支持 Intel/x64
     - target: dmg
       arch:
         - arm64
-        - x64
     - target: zip
       arch:
         - arm64
-        - x64
   category: public.app-category.productivity
   hardenedRuntime: true
   gatekeeperAssess: false

@@ -124,58 +124,11 @@ jobs:
           path: app/release/${{ needs.metadata.outputs.version }}/*
           if-no-files-found: error
 
-  build-macos-x64:
-    name: Build macOS x64
-    needs: metadata
-    runs-on: macos-15-intel
-    defaults:
-      run:
-        working-directory: app
-    env:
-      CSC_LINK: ${{ secrets.CSC_LINK }}
-      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-      APPLE_API_KEY_CONTENT: ${{ secrets.APPLE_API_KEY }}
-      APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
-      APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.metadata.outputs.tag }}
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      - name: Prepare Apple notarization key
-        shell: bash
-        run: |
-          set -euo pipefail
-          KEY_PATH="${RUNNER_TEMP}/AuthKey_${APPLE_API_KEY_ID}.p8"
-          if [[ "${APPLE_API_KEY_CONTENT}" == *"BEGIN PRIVATE KEY"* ]]; then
-            printf '%s\n' "${APPLE_API_KEY_CONTENT}" > "${KEY_PATH}"
-          else
-            APPLE_API_KEY_CONTENT="${APPLE_API_KEY_CONTENT}" python3 -c 'import base64, os, sys; sys.stdout.buffer.write(base64.b64decode(os.environ["APPLE_API_KEY_CONTENT"]))' > "${KEY_PATH}"
-          fi
-          chmod 600 "${KEY_PATH}"
-          echo "APPLE_API_KEY=${KEY_PATH}" >> "${GITHUB_ENV}"
-      - run: pnpm install --frozen-lockfile --prefer-offline
-      - run: pnpm run typecheck
-      - run: pnpm test
-      - run: pnpm run dist:mac:x64
-      - run: pnpm run smoke:packaged
-      - uses: actions/upload-artifact@v4
-        with:
-          name: darwin-x64
-          path: app/release/${{ needs.metadata.outputs.version }}/*
-          if-no-files-found: error
-
   publish:
     name: Publish GitHub Release
     needs:
       - metadata
       - build-macos-arm64
-      - build-macos-x64
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -210,18 +163,13 @@ jobs:
           set -euo pipefail
           mkdir -p .release-assets
 
-          node app/scripts/merge-update-yml.mjs \
-            --arm64-dir ".artifacts/darwin-arm64" \
-            --x64-dir ".artifacts/darwin-x64" \
-            --output-dir ".release-assets"
-
-          for arch in darwin-arm64 darwin-x64; do
-            find ".artifacts/${arch}" -maxdepth 1 -type f \( \
-              -name '*.dmg' -o \
-              -name '*.zip' -o \
-              -name '*.blockmap' \
-            \) -exec cp {} .release-assets/ \;
-          done
+          # arm64-only：直接用该构建自带的 latest-mac.yml，无需多架构合并
+          find ".artifacts/darwin-arm64" -maxdepth 1 -type f \( \
+            -name '*.dmg' -o \
+            -name '*.zip' -o \
+            -name '*.blockmap' -o \
+            -name 'latest-mac.yml' \
+          \) -exec cp {} .release-assets/ \;
 
           test -f .release-assets/latest-mac.yml
 
