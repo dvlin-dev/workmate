@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { AgentChunk, SendMessageResult } from '@shared/ipc';
 import type { ToolTraceItem } from '@shared/types';
-import { ApiError, cancelAgent, onAgentChunk, sendMessage } from '../lib/api';
+import { cancelAgent, onAgentChunk, sendMessage } from '../lib/api';
+import { chatErrorText } from '../lib/errors';
 import { useSnapshotStore } from './useSnapshotStore';
 
 /**
@@ -77,14 +78,7 @@ export const useChatStore = create<ChatState>((set, get) => {
         messages: patch(s.messages, assistantId, (m) => finalizeAssistant(m, res)),
       }));
     } catch (error) {
-      const errorText =
-        error instanceof ApiError && error.code === 'LLM_TIMEOUT'
-          ? '搭子有点忙（响应超时），稍后再试～'
-          : error instanceof ApiError && error.code === 'CONFIG_REQUIRED'
-            ? '请先在「设置」里填写 apiKey，再发送消息。'
-          : error instanceof ApiError && error.code === 'LLM_ERROR'
-            ? 'LLM 暂时不可用，去「设置」检查 baseURL / apiKey / model。'
-            : `出错了：${error instanceof Error ? error.message : '未知错误'}`;
+      const errorText = chatErrorText(error);
       set((s) => ({
         sending: false,
         activeId: null,

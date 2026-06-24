@@ -1,27 +1,18 @@
-import { memo, useState } from 'react';
+import { memo } from 'react';
 import { Check, Copy, RotateCcw } from 'lucide-react';
 import type { ToolTraceItem } from '@shared/types';
 import { Markdown } from '../ui/markdown';
 import { Loader } from '../ui/loader';
+import { useCopy } from '../../lib/useCopy';
 import { messageText, useChatStore, type ChatMessage, type MessagePart } from '../../store/useChatStore';
 import { ToolHint } from './ToolHint';
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const copy = async () => {
-    if (!navigator.clipboard?.writeText) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      /* ignore */
-    }
-  };
+  const { copied, copy } = useCopy();
   return (
     <button
       type="button"
-      onClick={copy}
+      onClick={() => void copy(text)}
       aria-label="复制"
       className="inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground group-hover:opacity-100"
     >

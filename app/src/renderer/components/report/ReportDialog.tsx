@@ -5,6 +5,7 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { ScrollArea } from '../ui/scroll-area';
 import { Markdown } from '../ui/markdown';
+import { useCopy } from '../../lib/useCopy';
 import { generateReport } from '../../lib/api';
 
 /** 一键生成周报按钮 + 弹窗（markdown 渲染 + 一键复制） */
@@ -13,7 +14,7 @@ export function ReportButton() {
   const [loading, setLoading] = useState(false);
   const [markdown, setMarkdown] = useState('');
   const [failed, setFailed] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { copied, copy } = useCopy();
   const reqId = useRef(0);
 
   const openReport = async () => {
@@ -35,20 +36,10 @@ export function ReportButton() {
     }
   };
 
-  const copy = async () => {
+  const onCopy = async () => {
     if (!markdown) return;
-    if (!navigator.clipboard?.writeText) {
-      toast.error('当前环境不支持复制，请手动选择文本');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(markdown);
-      setCopied(true);
-      toast.success('已复制到剪贴板');
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      toast.error('复制失败，请手动选择文本');
-    }
+    if (await copy(markdown)) toast.success('已复制到剪贴板');
+    else toast.error('复制失败，请手动选择文本');
   };
 
   const onOpenChange = (next: boolean) => {
@@ -80,7 +71,7 @@ export function ReportButton() {
                 <Markdown>{markdown}</Markdown>
               </ScrollArea>
               <div className="flex justify-end">
-                <Button variant="secondary" size="sm" onClick={copy} disabled={!markdown}>
+                <Button variant="secondary" size="sm" onClick={onCopy} disabled={!markdown}>
                   {copied ? <Check className="size-4" /> : <Copy className="size-4" />} 复制
                 </Button>
               </div>
