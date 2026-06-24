@@ -60,6 +60,7 @@
   --color-card-foreground: hsl(var(--card-foreground));
 
   --color-brand: hsl(var(--brand));
+  --color-brand-light: hsl(var(--brand-light));
   --color-brand-foreground: hsl(var(--brand-foreground));
 
   --radius-sm: var(--radius-sm);
@@ -210,8 +211,9 @@
 
     --ring: 240 10% 10%;
 
-    /* ========== Workmate 品牌色（紫罗兰 #7C5CFC） ========== */
-    --brand: 252 96% 68%;
+    /* ========== Workmate 品牌色（蓝 #455DD3） ========== */
+    --brand: 229 62% 55%;
+    --brand-light: 229 62% 65%;
     --brand-foreground: 0 0% 100%;
 
     --radius: 0.5rem;
@@ -264,7 +266,8 @@
 
     --ring: 240 3% 75%;
 
-    --brand: 252 96% 72%;
+    --brand: 229 62% 62%;
+    --brand-light: 229 62% 70%;
     --brand-foreground: 0 0% 100%;
   }
 

@@ -2,7 +2,7 @@
   "name": "Workmate · 工作搭子",
   "short_name": "Workmate",
   "description": "AI-native 的 macOS 工作搭子：用说话维护周目标，一键生成周报。",
-  "theme_color": "#7C5CFC",
+  "theme_color": "#455DD3",
   "background_color": "#F2F2F7",
   "display": "standalone",
   "icons": [
