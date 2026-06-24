@@ -67,7 +67,7 @@ export function SkillDetailModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] gap-3 sm:max-w-2xl">
+      <DialogContent className="max-h-[85vh] w-full min-w-0 gap-3 overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{skill?.title ?? '技能'}</DialogTitle>
           <DialogDescription className="line-clamp-2">{skill?.description ?? ''}</DialogDescription>
@@ -78,7 +78,7 @@ export function SkillDetailModal({
             <Loader2 className="size-5 animate-spin" />
           </div>
         ) : (
-          <ScrollArea className="max-h-[55vh] rounded-lg border border-border-muted p-4">
+          <ScrollArea className="max-h-[55vh] w-full min-w-0 rounded-lg border border-border-muted p-4">
             <Markdown>{detail?.content ?? '（无内容）'}</Markdown>
           </ScrollArea>
         )}

@@ -68,7 +68,7 @@ const components: Components = {
 
 export function Markdown({ children, className }: { children: string; className?: string }) {
   return (
-    <div className={cn('text-sm text-foreground', className)}>
+    <div className={cn('min-w-0 max-w-full break-words text-sm text-foreground', className)}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {children}
       </ReactMarkdown>
