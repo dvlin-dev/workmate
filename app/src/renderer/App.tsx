@@ -1,12 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Settings } from 'lucide-react';
-import { Button } from './components/ui/button';
 import { ChatPanel } from './components/chat/ChatPanel';
 import { KanbanPanel } from './components/kanban/KanbanPanel';
 import { SettingsDialog } from './components/settings/SettingsDialog';
+import { Sidebar } from './components/sidebar/Sidebar';
+import { SkillsPage } from './components/skills/SkillsPage';
 import { useSnapshotStore } from './store/useSnapshotStore';
 import { useConfigStore } from './store/useConfigStore';
 import { useChatStore } from './store/useChatStore';
+import { useNavStore } from './store/useNavStore';
+
+function HomeView({ onRequireConfig }: { onRequireConfig: () => void }) {
+  return (
+    <div className="flex min-h-0 flex-1 gap-3 px-3 pb-3 pt-3">
+      <ChatPanel onRequireConfig={onRequireConfig} />
+      <KanbanPanel />
+    </div>
+  );
+}
 
 export default function App() {
   const hydrate = useSnapshotStore((s) => s.hydrate);
@@ -14,6 +24,7 @@ export default function App() {
   const subscribeChunks = useChatStore((s) => s.subscribeChunks);
   const loadConfig = useConfigStore((s) => s.load);
   const config = useConfigStore((s) => s.config);
+  const destination = useNavStore((s) => s.destination);
 
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [firstRunChecked, setFirstRunChecked] = useState(false);
@@ -40,23 +51,15 @@ export default function App() {
   }, [config, firstRunChecked]);
 
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="window-drag-region flex h-11 shrink-0 items-center justify-between pl-20 pr-4">
-        <span className="text-sm font-semibold">Workmate · 工作搭子</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="window-no-drag size-7"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="设置"
-        >
-          <Settings className="size-4" />
-        </Button>
-      </header>
+    <div className="flex h-screen bg-background text-foreground">
+      <Sidebar onOpenSettings={() => setSettingsOpen(true)} />
 
-      <main className="flex min-h-0 flex-1 gap-3 px-3 pb-3">
-        <ChatPanel onRequireConfig={() => setSettingsOpen(true)} />
-        <KanbanPanel />
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {destination === 'home' ? (
+          <HomeView onRequireConfig={() => setSettingsOpen(true)} />
+        ) : (
+          <SkillsPage />
+        )}
       </main>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
