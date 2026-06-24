@@ -20,7 +20,7 @@ export function DownloadCTA() {
             把这一周，交给你的工作搭子
           </h2>
           <p className="mx-auto mb-9 max-w-xl leading-relaxed text-muted-foreground">
-            下载 macOS App，说出第一句计划，看看看板怎么自己长出来、周报怎么自己写出来。设置页填入你的 LLM Key 即全功能启用，没填也能用内置 mock 先把整套闭环跑通——体验过再决定。
+            下载 macOS App，说出第一句计划，看看看板怎么自己长出来、周报怎么自己写出来。在设置页填入你的 LLM Key（OpenAI 兼容服务，可自定义 baseURL）即可开跑——完全免费、开源、数据只留在你这台 Mac 上。
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <ButtonLink href={DOWNLOAD_URL} variant="brand">
