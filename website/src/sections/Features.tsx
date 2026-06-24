@@ -4,28 +4,28 @@ import { useScrollReveal, useScrollRevealGroup } from '../hooks/useScrollReveal'
 const FEATURES = [
   {
     icon: Target,
-    title: '目标捕获，看板自动生成',
-    desc: '说一段话，搭子用工具把它拆成「周目标树」，看板自动长出来。你不用建卡片、不用填字段——目标从此不再只躺在脑子里。',
+    title: '一句话，目标就立住了',
+    desc: '说一段话，我帮你拆成一张周目标清单，看板自己长出来。不用建卡片、不用填字段——目标从此不只躺在你脑子里。',
   },
   {
     icon: TrendingUp,
-    title: '进度归因，进度条自己动',
-    desc: '干活途中随口说一句「单测补到 60% 了」，搭子自动判断该归到哪个目标、更新进度并落一条进度事件。多目标也归得准，不确定时它会先反问。',
+    title: '随口一说，进度我来更',
+    desc: '干活间隙撂一句「单测补到 60% 了」，我自己判断是哪件事、更新进度、记上一笔。几件事同时推也认得清，拿不准我会先问你一句。',
   },
   {
     icon: AlarmClock,
-    title: '主动盯梢，不让目标停摆',
-    desc: '某个目标一阵没动静，搭子会主动来问一句、推你一把；傍晚没记录也会轻轻提醒。目标不会定了就躺在看板里发霉。',
+    title: '谁停摆了，我比你还急',
+    desc: '某个目标一阵没动静，我会主动来问一句、推你一把；傍晚还没记录也轻轻提醒你。目标不会立了就晾在那儿发霉。',
   },
   {
     icon: ListChecks,
-    title: '提醒事项，系统按时提醒',
-    desc: '拆出的带日期待办单向写入 macOS「提醒事项」，交给系统在该提醒时喊你。同一条待办幂等写入，不会重复打扰，也不动你原有的清单。',
+    title: '该提醒的，我写进提醒事项',
+    desc: '带日期的待办我单向写进 macOS「提醒事项」，到点让系统喊你。同一条只写一次，不重复打扰，也不动你原来的清单。',
   },
   {
     icon: FileText,
-    title: '一键周报，叙事不是清单',
-    desc: '以这一周的进度流为唯一原料，生成「完成 / 亮点 / 卡点 / 下周计划」四段式叙事周报，平实第一人称，可直接发同事，一键复制。',
+    title: '周报？早替你攒好了',
+    desc: '这一周你说过的每条进展都是我的素材，到周五自动写成「完成 / 亮点 / 卡点 / 下周计划」四段叙事周报，一键复制就能发。',
   },
 ];
 
@@ -37,10 +37,10 @@ export function Features() {
       <div className="mx-auto max-w-5xl">
         <div ref={headRef} className="mb-12 text-center">
           <h2 className="mb-3 text-2xl font-bold tracking-tight sm:text-3xl">
-            从立目标到推着做完，一条闭环
+            从立目标到陪你做完，我全程在
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            捕获 → 归因 → 盯梢 → 提醒 → 复盘，每张卡都对应桌面端真实在做的事，环环推着目标往前。
+            立目标 → 更进度 → 催你一把 → 到点提醒 → 写周报，每件都是我在桌面端真实替你干的事，环环把目标往前推。
           </p>
         </div>
         <div ref={ref} className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">

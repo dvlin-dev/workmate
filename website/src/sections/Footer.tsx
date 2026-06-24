@@ -35,7 +35,7 @@ export function Footer() {
               <span className="tracking-tight">Workmate · 工作搭子</span>
             </a>
             <p className="max-w-xs text-sm leading-relaxed text-tertiary">
-              用说话管理周目标的 macOS 工作搭子。你只管说，它替你盯住推进、到点提醒、周五还顺手写好周报。
+              你的 macOS 工作搭子。你只管说，目标我替你盯着——盯进度、催你一把，周五还顺手把周报写好。
             </p>
           </div>
 

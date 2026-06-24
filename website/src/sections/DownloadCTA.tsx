@@ -17,10 +17,10 @@ export function DownloadCTA() {
         />
         <div className="relative">
           <h2 className="mb-4 text-2xl font-bold tracking-tight sm:text-3xl">
-            把这周的目标，交给搭子盯着
+            来，先跟搭子唠两句
           </h2>
           <p className="mx-auto mb-9 max-w-xl leading-relaxed text-muted-foreground">
-            下载 macOS App，说出第一个目标，看看搭子怎么替你盯住推进、停滞时推你一把、周五把这周复盘成周报。在设置页填入你的 LLM Key（OpenAI 兼容服务，可自定义 baseURL）即可开跑——完全免费、开源、数据只留在你这台 Mac 上。
+            下载 macOS App，把这周想做的第一件事说给我听——看我怎么帮你记上、盯着往前走，到周五还顺手把周报写好。在设置页填入你的 LLM Key（OpenAI 兼容服务，可改 baseURL）就能开跑；完全免费、开源，数据只留在你这台 Mac 上。
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <ButtonLink href={DOWNLOAD_URL} variant="brand">

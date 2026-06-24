@@ -3,17 +3,19 @@
  * 每个 handler 返回 AppResult；失败转错误信封，不抛到渲染层。
  */
 
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 import { generateText } from 'ai';
 import { CH } from '@shared/ipc';
 import type { AppResult, SendMessageResult } from '@shared/ipc';
 import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot } from '@shared/types';
+import type { SkillSummary, SkillDetail } from '../skills/types';
 import type { WorkmateStore } from '../store';
 import type { ReminderBridge, ReportService } from '../agent/context';
 import { ReminderPermissionError } from '../agent/context';
 import { runTurnStream, AGENT_TIMEOUT_MS } from '../agent/orchestrator';
 import { buildRawModel } from '../agent/model';
+import { getSkillsRegistry } from '../skills';
 import { asObjectRecord, broadcastToAllWindows, errorMessage, fail, ok } from './shared';
 
 export interface IpcDeps {
@@ -38,6 +40,8 @@ function cancelReason(): Error {
 
 export function registerIpc(deps: IpcDeps): void {
   const { store, reminders, report } = deps;
+  const skills = getSkillsRegistry();
+  void skills.refresh(); // 后台预热（拷预装 + 扫描）；失败不阻塞
 
   // 当前进行中的一轮对话（单窗口单飞）；用于超时与用户取消
   let currentController: AbortController | null = null;
@@ -64,7 +68,7 @@ export function registerIpc(deps: IpcDeps): void {
     try {
       const result = await runTurnStream(
         text,
-        { store, reminders, report },
+        { store, reminders, report, skills },
         (chunk) => e.sender.send(CH.agentChunk, chunk), // 逐字/工具足迹只回发起窗口
         controller.signal
       );
@@ -188,6 +192,49 @@ export function registerIpc(deps: IpcDeps): void {
         return fail('REMINDER_PERMISSION_DENIED', error.message);
       }
       return fail('REMINDER_FAILED', errorMessage(error) || '写入提醒事项失败');
+    }
+  });
+
+  // ── Skills（技能管理） ──────────────────────────────────────
+  ipcMain.handle(CH.skillsList, async (): Promise<AppResult<SkillSummary[]>> => {
+    try {
+      return ok(await skills.list());
+    } catch (error) {
+      return fail('INTERNAL', errorMessage(error) || '读取技能失败');
+    }
+  });
+
+  ipcMain.handle(CH.skillsGetDetail, async (_e, payload): Promise<AppResult<SkillDetail>> => {
+    const name = String(asObjectRecord(payload).name ?? '');
+    if (!name) return fail('BAD_INPUT', '缺少技能名');
+    try {
+      return ok(await skills.getDetail(name));
+    } catch (error) {
+      return fail('NOT_FOUND', errorMessage(error) || '技能未找到');
+    }
+  });
+
+  ipcMain.handle(CH.skillsSetEnabled, async (_e, payload): Promise<AppResult<SkillSummary>> => {
+    const raw = asObjectRecord(payload);
+    const name = String(raw.name ?? '');
+    const enabled = Boolean(raw.enabled);
+    if (!name) return fail('BAD_INPUT', '缺少技能名');
+    try {
+      return ok(await skills.setEnabled(name, enabled));
+    } catch (error) {
+      return fail('NOT_FOUND', errorMessage(error) || '技能未找到');
+    }
+  });
+
+  ipcMain.handle(CH.skillsOpenDirectory, async (_e, payload): Promise<AppResult<void>> => {
+    const name = String(asObjectRecord(payload).name ?? '');
+    const location = name ? skills.resolveLocation(name) : null;
+    if (!location) return fail('NOT_FOUND', '技能目录未找到');
+    try {
+      await shell.openPath(location);
+      return ok(undefined);
+    } catch (error) {
+      return fail('INTERNAL', errorMessage(error) || '打开目录失败');
     }
   });
 }

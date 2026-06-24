@@ -31,9 +31,9 @@ pnpm dev               # 起开发窗口（1280×800，左对话 / 右看板）
 
 | 字段 | 说明 |
 |------|------|
-| `baseURL` | 默认内置百度 OneAPI（`https://oneapi-comate.baidu-int.com/v1`），可改为任意 OpenAI 兼容服务 |
-| `apiKey` | 你的 token，**仅保存在本地**，绝不上传。去 <https://oneapi-comate.baidu-int.com/token> 获取 |
-| `model` | 默认 `ernie-3.5-8k`（占位，按你的 OneAPI 可用模型改） |
+| `baseURL` | 默认 `https://api.openai.com/v1`（OpenAI 官方），可改为任意 OpenAI 兼容服务（自建网关 / 第三方） |
+| `apiKey` | 你的 key，**仅保存在本地**，绝不上传。在你的 LLM 服务商处获取 |
+| `model` | 默认 `gpt-5.5`（占位，按你服务商的可用模型改） |
 
 填好后点「测试连接」验证。**绝不硬编码任何密钥** —— 本项目开源，key 一律由用户自填。
 
@@ -64,6 +64,20 @@ pnpm run build     # 出纯静态到 website/dist/
 
 `dist/` 是纯静态产物，丢任意静态托管即可。下载链接默认指向 GitHub Releases（改 `website/src/lib/site.ts`）。
 
+## 首次打开（未签名构建）
+
+当前 dmg/zip 未做 Apple 代码签名与公证。下载后首次打开若提示「已损坏」或「无法验证」，任选其一：
+
+- 右键 App →「打开」→ 在弹窗里再次「打开」；或
+- 终端执行 `xattr -cr /Applications/Workmate.app` 后再打开。
+
+> 自己打包签名版：申请 Apple Developer ID 后在 `app/electron-builder.yml` 配 `mac.notarize` 与签名证书。
+
 ## 边界
 
 仅单机单用户、仅 macOS；提醒事项只写不读（单向）；不做云同步 / 账号 / 多人协作。详见 [`CLAUDE.md`](./CLAUDE.md) 全局边界。
+
+## 许可证与贡献
+
+- 开源协议：[MIT](./LICENSE)。
+- 参与开发见 [CONTRIBUTING.md](./CONTRIBUTING.md)；安全问题见 [SECURITY.md](./SECURITY.md)。

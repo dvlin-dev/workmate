@@ -6,11 +6,11 @@
 
 import { z } from 'zod';
 
-/** 默认内置百度 OneAPI 的 baseURL；apiKey 留空，引导用户去 token 页获取。绝不硬编码密钥。 */
-export const DEFAULT_BASE_URL = 'https://oneapi-comate.baidu-int.com/v1';
-/** 可改占位模型名（用户在设置页按其 OneAPI 可用模型调整） */
-export const DEFAULT_MODEL = 'ernie-3.5-8k';
-export const ONEAPI_TOKEN_URL = 'https://oneapi-comate.baidu-int.com/token';
+/** 默认 baseURL：通用 OpenAI 兼容端点；apiKey 由用户在设置页填写。绝不硬编码密钥。
+ *  换成任意 OpenAI 兼容服务（自建网关 / 第三方）只需改 baseURL + apiKey + model。 */
+export const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
+/** 可改占位模型名（用户在设置页按其服务可用模型调整） */
+export const DEFAULT_MODEL = 'gpt-5.5';
 
 export const LlmConfigSchema = z.object({
   baseURL: z.string().min(1, 'baseURL 不能为空').default(DEFAULT_BASE_URL),

@@ -50,6 +50,12 @@ const api: WorkmateApi = {
   reminders: {
     write: (taskId) => ipcRenderer.invoke(CH.remindersWrite, { taskId }),
   },
+  skills: {
+    list: () => ipcRenderer.invoke(CH.skillsList),
+    getDetail: (name) => ipcRenderer.invoke(CH.skillsGetDetail, { name }),
+    setEnabled: (name, enabled) => ipcRenderer.invoke(CH.skillsSetEnabled, { name, enabled }),
+    openDirectory: (name) => ipcRenderer.invoke(CH.skillsOpenDirectory, { name }),
+  },
   nudge: {
     onNotify: (handler) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: NudgePayload) =>

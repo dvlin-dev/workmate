@@ -61,17 +61,17 @@
 
 ## M8 · 官网（额外交付物）
 
-- [x] **T8.1** `website/` 脚手架：**改用 Vite + React 静态**（非 TanStack Start——单页静态站不需要 SSR/路由/nitro，避免 nitro-nightly 与 routeTree 的构建脆弱性；详见下方决策说明）。`globals.css` 复用同一套 token + 紫罗兰 `--brand` + scroll-reveal 段；`lib/utils.ts` 的 `cn()`。`vite build` 出 `dist/` 纯静态。
+- [x] **T8.1** `website/` 脚手架：**改用 Vite + React 静态**（非 TanStack Start——单页静态站不需要 SSR/路由/nitro，避免 nitro-nightly 与 routeTree 的构建脆弱性；详见下方决策说明）。`globals.css` 复用同一套 token + 蓝 `--brand` + scroll-reveal 段；`lib/utils.ts` 的 `cn()`。`vite build` 出 `dist/` 纯静态。
 - [x] **T8.2** **复用滚动入场动画**：`hooks/useScrollReveal.ts`（含 group 版）+ scroll-reveal CSS。SEO 改为 `index.html` 内联 meta + JsonLd（单页静态最稳，等价复用 seo.ts 的 meta 形状），不引入 `lib/seo.ts`/`__root.tsx`（TanStack 专属）。
 - [x] **T8.3** landing 段落（`src/sections/`）：Hero（渐变标题 + CTA + CSS 拟真两栏 App 预览）、Problem（痛点三连）、HowItWorks（三步）、Features（4 卡）、DownloadCTA、Footer，采用经典 landing 结构、内容换中文（website.md §2–3）。`useScrollReveal(Group)` 驱动入场。
-- [x] **T8.4** 品牌资产：`favicon.svg`/`logo.svg`（紫罗兰渐变 W）、`manifest.json`（`theme_color #7C5CFC`）。`.icns` 图标管线属 App 打包（branding.md §3，收尾随 dmg）；`og-image.png`（1200×630 位图）留待补（meta 已引用路径）。
+- [x] **T8.4** 品牌资产：`favicon.svg`/`logo.svg`（蓝渐变 W）、`manifest.json`（`theme_color #455DD3`）。`.icns` 图标管线属 App 打包（branding.md §3，收尾随 dmg）；`og-image.png`（1200×630 位图）留待补（meta 已引用路径）。
 - [x] **DoD**：`npm run build` 出 `dist/` 静态（index.html + css + js）✓、typecheck 通过；落地页完整、品牌一致、含下载 CTA。
 
 > **决策说明（官网栈偏离 docs 的 TanStack Start）**：docs 原选 TanStack Start 作为工程范式。但 workmate 官网是**单页静态营销站**——TanStack Start 的 SSR/文件路由/nitro（需绕开 SSR React 重复实例化、且要 pin nitro-nightly）对单页零收益、徒增构建脆弱性。改用 Vite+React 静态：**设计实质全部复用同一套范式**（token 体系、`useScrollReveal`、scroll-reveal CSS、品牌渐变、SEO meta、landing 结构/内容），只换掉对单页无意义的框架外壳，契合「省略用不到的功能」原则，且 `vite build` 可靠出静态。如需严格对齐可后续平移到 TanStack Start。
 
 ## 收尾
 
-- [x] **T9.1** `README.md`：配置 LLM（含 OneAPI token 地址）、授权提醒事项、`cd app && npm install && npm run dev`、`npm test`/`npm run dist:mac`、官网启动。
+- [x] **T9.1** `README.md`：配置 LLM（含 LLM key 获取说明）、授权提醒事项、`cd app && npm install && npm run dev`、`npm test`/`npm run dist:mac`、官网启动。
 - [x] **T9.2** 全量验证通过：App `typecheck` + 36 测试 + `build` 三 bundle ✓；Website `typecheck` + `build` 静态 ✓。各里程碑已逐条回写偏差到 design/reference。
 - [~] **多 Agent 深度 review 循环**（进行中）：
   - **Round 1**：9 模块各 1 review agent + 逐条对抗式核验 → 35 条确认（0 high / 14 medium / 21 low）。已修全部 medium + 多数 low：主对话 `run()` 加超时信号 + `MaxTurnsExceededError` 降级 + IPC 失败补发快照（LLM_TIMEOUT 契约不再死代码）；`config:testProvider` 改无状态入参（测试不再强制落盘）；`findGoals` 去 2-gram 误命中 + mock 清洗 query；窗口加外链导航 guard；设置页测试/保存解耦 + null 守卫 + timer 清理；config schema 拒空 baseURL/model；持久化 zod 校验（语义损坏重置）；提醒事项纯日期 due 本地化 + in-flight 去重 + 权限判定扩面；nudge 节流持久化 + 启动即评估 + 通知点击 restore/focus；周报弹窗错误态 + 请求序号 + 剪贴板守卫；聊天 sticky-bottom + reduced-motion + a11y。新增 `test/hardening.test.ts`，**43 测试全绿** + typecheck + build。

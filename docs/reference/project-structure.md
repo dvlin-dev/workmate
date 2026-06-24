@@ -114,8 +114,8 @@ website/
   public/{favicon.svg, logo.svg, manifest.json}   # og-image.png 待补
   src/
     main.tsx  App.tsx             # App 内含 Header；按序渲染各 section
-    styles/globals.css            # 与 app 同一套 token（light）+ 紫罗兰 brand + scroll-reveal 段
-    lib/{utils.ts, site.ts}       # cn() + 站点常量（GitHub/下载/OneAPI 链接）
+    styles/globals.css            # 与 app 同一套 token（light）+ 蓝 brand + scroll-reveal 段
+    lib/{utils.ts, site.ts}       # cn() + 站点常量（GitHub/下载链接）
     hooks/useScrollReveal.ts      # 滚动进入逐字揭示（含 group 版）
     components/ui/Button.tsx      # 轻量 CTA 按钮
     sections/{Hero,Problem,HowItWorks,Features,DownloadCTA,Footer}.tsx

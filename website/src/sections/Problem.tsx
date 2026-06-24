@@ -3,18 +3,18 @@ import { useScrollReveal, useScrollRevealGroup } from '../hooks/useScrollReveal'
 const PROBLEMS = [
   {
     emoji: '🎯',
-    title: '目标定了，就没人盯了',
-    desc: '周一立的几个目标，记在便利贴和文档里，没几天就没人回看。它们从不被结构化，也没人替你跟踪到底推进到哪了。',
+    title: '周一立的 flag，周中就忘',
+    desc: '周一信誓旦旦定下几件事，记在便利贴和文档里，忙起来没几天就没再翻过。没人替你盯着，目标就这么悄悄凉了。',
   },
   {
-    emoji: '🐌',
-    title: '进展无人推，目标悄悄停摆',
-    desc: '一忙就忘了某个目标好几天没动。等想起来，deadline 已经贴脸——没人在它停滞时提醒你、推你一把。',
+    emoji: '🌊',
+    title: '群里 @ 你的事，划走就没了',
+    desc: '开完会消息 99+，@你的关键待办夹在闲聊里，手一划就沉底。等想起来，deadline 已经贴到脸上。',
   },
   {
-    emoji: '📉',
-    title: '周五才发现，这周没怎么推进',
-    desc: '回看一周，说不清每个目标到底走了多远。写周报时对着空文档硬回忆，把零散努力挤成三行流水账。',
+    emoji: '📄',
+    title: '周五对着空文档，硬挤周报',
+    desc: '回看一周，说不清每件事到底走到哪了。翻 commit、扒聊天记录，把零散的努力挤成三行流水账——明明做了不少，写出来却像没干活。',
   },
 ];
 
@@ -25,7 +25,7 @@ export function Problem() {
     <section className="px-4 py-20 sm:px-6 sm:py-24">
       <div className="mx-auto max-w-5xl">
         <h2 ref={headRef} className="mb-12 text-center text-2xl font-bold tracking-tight sm:text-3xl">
-          定目标不难，难的是有人替你盯着它往前走
+          这些是不是也戳到你了？
         </h2>
         <div ref={ref} className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           {PROBLEMS.map((p) => (

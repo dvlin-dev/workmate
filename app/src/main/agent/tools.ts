@@ -156,6 +156,28 @@ export function createWorkmateTools(): Tool<AgentContext>[] {
     },
   });
 
+  const skill = tool({
+    name: 'skill',
+    description:
+      '按 name 加载一个已启用的技能（skill）的完整内容与本地文件引用，据此执行任务。当任务匹配某技能的 description 时先调用它。',
+    parameters: z.object({ name: z.string().min(1).describe('技能名（kebab-case）') }),
+    execute: async ({ name }, rc?: RunContext<AgentContext>) => {
+      const ctx = ctxOf(rc);
+      const detail = ctx.skills ? await ctx.skills.loadSkillForTool(name) : null;
+      if (!detail) {
+        ctx.trace.push({ tool: 'skill', summary: `技能「${name}」未找到或未启用` });
+        return { error: '技能未找到或未启用', name };
+      }
+      ctx.trace.push({ tool: 'skill', summary: `已加载技能「${name}」` });
+      return {
+        name: detail.name,
+        content: detail.content,
+        baseDir: detail.location,
+        files: detail.files,
+      };
+    },
+  });
+
   return [
     createGoal,
     addTask,
@@ -166,5 +188,6 @@ export function createWorkmateTools(): Tool<AgentContext>[] {
     writeReminder,
     generateReport,
     getSnapshot,
+    skill,
   ];
 }

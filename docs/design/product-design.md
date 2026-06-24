@@ -30,7 +30,7 @@
 - **低摩擦**：唯一的输入方式是"说话"，看板自动生成。
 - **闭环**：录入 → 归因 → 提醒 → 周报，每一步的数据都为下一步服务。
 - **主动**：搭子会在合适时机主动推送，而非被动等待。
-- **通用可开源**：LLM provider 层抽象，默认内置百度 OneAPI，换 baseURL 即可接入其他兼容服务。绝不硬编码任何密钥。
+- **通用可开源**：LLM provider 层抽象，默认内置OpenAI 兼容服务，换 baseURL 即可接入其他兼容服务。绝不硬编码任何密钥。
 
 ---
 
@@ -60,7 +60,7 @@
 | 前端 | React + TypeScript + Vite | 团队熟悉，组件化清晰 |
 | Agent 编排 | **纯 tool-calling loop** | 最 AI-native，归因最准，无需规则硬解析 |
 | LLM 协议 | **OpenAI 兼容 chat completions（带 function calling）** | 生态通用，便于开源后替换 provider |
-| 默认 provider | 百度 OneAPI（内置 baseURL，key 用户自填） | 内网可用、现场不依赖外网 |
+| 默认 provider | OpenAI 兼容服务（内置 baseURL，key 用户自填） | 内网可用、现场不依赖外网 |
 | 本地存储 | **本地 JSON 文件**（Electron `userData` 目录） | 单人一周数据量极小，无需 SQLite |
 | 提醒事项集成 | **osascript（AppleScript）单向写入** | macOS 原生、无需额外依赖 |
 
@@ -285,9 +285,9 @@ interface ReminderBridge {
 ```typescript
 interface AppConfig {
   llm: {
-    baseURL: string;   // 默认内置百度 OneAPI 的 baseURL
+    baseURL: string;   // 默认内置OpenAI 兼容服务 的 baseURL
     apiKey: string;    // 用户自填，引导去 token 页面获取
-    model: string;     // 默认一个百度可用模型名
+    model: string;     // 默认一个服务商可用模型名
   };
   nudge: {
     enabled: boolean;
@@ -297,11 +297,11 @@ interface AppConfig {
 }
 ```
 
-> 具体默认值落在 `app/src/shared/config.ts`（zod schema + `z.infer<>` 派生 `AppConfig`，不另写平行 interface）：`baseURL='https://oneapi-comate.baidu-int.com/v1'`、`model='ernie-3.5-8k'`（可改占位）、`apiKey=''`、`nudge={enabled:true,eveningHour:18,stallHours:4}`。
+> 具体默认值落在 `app/src/shared/config.ts`（zod schema + `z.infer<>` 派生 `AppConfig`，不另写平行 interface）：`baseURL='https://api.openai.com/v1'`、`model='gpt-5.5'`（可改占位）、`apiKey=''`、`nudge={enabled:true,eveningHour:18,stallHours:4}`。
 
 ### 9.2 Provider 抽象
 
-> **实现说明**：下面描述的是 provider 抽象的*意图*——可替换、默认 OneAPI、测试可 mock、绝不硬编码密钥。**具体实现不再手写 `chat()`**，而是采用成熟栈：`@ai-sdk/openai-compatible` 的 `createOpenAICompatible({ baseURL, apiKey })` 构建模型，经 `aisdk()` 接入 `@openai/agents-core`；测试 mock 由 AI SDK 的 `MockLanguageModelV3` 显式启用。权威实现见 [`../reference/agent-runtime.md`](../reference/agent-runtime.md)。下文的 `LLMProvider`/`OpenAICompatProvider`/`MockProvider` 命名仅表达概念意图，不是最终类名。
+> **实现说明**：下面描述的是 provider 抽象的*意图*——可替换、默认 OpenAI 兼容、测试可 mock、绝不硬编码密钥。**具体实现不再手写 `chat()`**，而是采用成熟栈：`@ai-sdk/openai-compatible` 的 `createOpenAICompatible({ baseURL, apiKey })` 构建模型，经 `aisdk()` 接入 `@openai/agents-core`；测试 mock 由 AI SDK 的 `MockLanguageModelV3` 显式启用。权威实现见 [`../reference/agent-runtime.md`](../reference/agent-runtime.md)。下文的 `LLMProvider`/`OpenAICompatProvider`/`MockProvider` 命名仅表达概念意图，不是最终类名。
 
 ```typescript
 // 概念意图（非最终实现）：一个可替换、OpenAI 兼容、支持 function-calling 的模型层
@@ -310,7 +310,7 @@ interface LLMProvider {
 }
 ```
 - 默认走 OpenAI 兼容协议、支持 function calling（由 `@ai-sdk/openai-compatible` 提供）。
-- **默认内置百度 OneAPI 的 baseURL**；apiKey 留空时，首次启动与发送消息都会引导用户填写设置，运行时不走 mock。
+- **默认内置OpenAI 兼容服务 的 baseURL**；apiKey 留空时，首次启动与发送消息都会引导用户填写设置，运行时不走 mock。
 - 提供显式测试 mock（`MockLanguageModelV3`）：跑通 Agent 单测，不作为用户运行时兜底。
 - **绝不硬编码任何密钥**。baseURL 可在设置页修改，开源后换成任意 OpenAI 兼容服务即可。
 
@@ -396,7 +396,7 @@ interface LLMProvider {
 | LLM 归因不准 | 进展归错目标 | system prompt 要求不确定时反问；find_goal 返回空时不硬归因 |
 | tool loop 失控 | LLM 反复调 tool 不收敛 | 设循环上限（如 8 轮）并兜底返回 |
 | 无 key 阻塞 | 现场没配 key 无法使用真实归因 | 首启与发送时引导填写设置；测试 mock 仅用于自动化测试 |
-| 内网/外网差异 | 默认百度 OneAPI 仅内网可用 | baseURL 可配置，开源后可换 |
+| 内网/外网差异 | 默认OpenAI 兼容服务 仅内网可用 | baseURL 可配置，开源后可换 |
 | 跨周边界 | 周一切换周导致数据归属混乱 | weekOf 以周一为锚，统一计算当前周 |
 
 ---
@@ -405,7 +405,7 @@ interface LLMProvider {
 - 可在 macOS 上 `npm install && npm run dev` 启动的 Electron 应用。
 - 跑通"自然语言录入 → 看板结构化 → 进度归因 → 一键周报"核心闭环。
 - 提醒事项写入与主动推送均属 MVP，完整体验的一部分（主动推送优先级最低，现场时间不足时最后接）。
-- README：说明如何配置 LLM provider（含百度 OneAPI token 获取地址）、如何授权提醒事项、如何运行与打包。
+- README：说明如何配置 LLM provider（含OpenAI 兼容服务 token 获取地址）、如何授权提醒事项、如何运行与打包。
 
 ---
 
@@ -414,5 +414,3 @@ interface LLMProvider {
 - **周目标树**：WeeklyPlan → Goal → Task 的三层结构。
 - **进度流**：ProgressEvent 列表，周报的唯一原料。
 - **归因**：把用户口语化的进展，关联到对应 Goal 并更新其 progress 的过程。
-- **OneAPI**：百度内部统一的 LLM 网关，提供 OpenAI 兼容接口；token 获取地址 `https://oneapi-comate.baidu-int.com/token`。
-

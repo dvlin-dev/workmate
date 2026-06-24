@@ -9,6 +9,8 @@ import type {
   DeepPartial,
   NudgePayload,
   SendMessageResult,
+  SkillDetail,
+  SkillSummary,
   TestProviderInput,
 } from '@shared/ipc';
 import type { Snapshot } from '@shared/types';
@@ -93,4 +95,21 @@ export async function writeReminder(taskId: string): Promise<string> {
 
 export function onNudge(handler: (n: NudgePayload) => void): () => void {
   return api().nudge.onNotify(handler);
+}
+
+// ── 技能管理 ──────────────────────────────────────────────
+export async function listSkills(): Promise<SkillSummary[]> {
+  return unwrap(await api().skills.list());
+}
+
+export async function getSkillDetail(name: string): Promise<SkillDetail> {
+  return unwrap(await api().skills.getDetail(name));
+}
+
+export async function setSkillEnabled(name: string, enabled: boolean): Promise<SkillSummary> {
+  return unwrap(await api().skills.setEnabled(name, enabled));
+}
+
+export async function openSkillDirectory(name: string): Promise<void> {
+  return unwrap(await api().skills.openDirectory(name));
 }

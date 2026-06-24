@@ -8,13 +8,15 @@ import { run, user, MaxTurnsExceededError } from '@openai/agents-core';
 import { hasApiKey, type AppConfig } from '@shared/config';
 import type { Snapshot, ToolTraceItem } from '@shared/types';
 import type { WorkmateStore } from '../store';
-import type { AgentContext, ReminderBridge, ReportService } from './context';
+import type { AgentContext, ReminderBridge, ReportService, SkillsPort, Workspace } from './context';
 import { buildAgent } from './agent';
+import { getWorkspace } from './workspace';
 import { MissingApiKeyError } from './model';
 
-export const MAX_TURNS = 8;
+/** 开放任务（写多文件/跑命令）需要更多轮，从 8 提到 30；doom-loop 由 agents-core 兜底 */
+export const MAX_TURNS = 30;
 /** 主对话单轮超时；超时让 agents-core 抛 AbortError，IPC 层映射为 LLM_TIMEOUT */
-export const AGENT_TIMEOUT_MS = 60_000;
+export const AGENT_TIMEOUT_MS = 180_000;
 
 const MAX_TURNS_FALLBACK = '这次要做的步骤有点多，我先把已处理的更新好了，需要的话再说一次 🙏';
 
@@ -26,6 +28,10 @@ export interface RunTurnDeps {
   config?: AppConfig;
   /** 仅供单测显式使用确定性 mock；运行时不传 */
   allowMockModel?: boolean;
+  /** Skills 端口（可选；无则不注入技能能力） */
+  skills?: SkillsPort;
+  /** 测试可注入临时 workspace，避免依赖 Electron app.getPath */
+  workspace?: Workspace;
 }
 
 export interface RunTurnResult {
@@ -40,7 +46,7 @@ export type StreamEvent =
   | { kind: 'tool'; item: ToolTraceItem };
 
 function prepare(text: string, deps: RunTurnDeps) {
-  const { store, reminders, report } = deps;
+  const { store, reminders, report, skills } = deps;
   const config = deps.config ?? store.getConfig();
   if (!hasApiKey(config) && !deps.allowMockModel) {
     throw new MissingApiKeyError();
@@ -49,8 +55,16 @@ function prepare(text: string, deps: RunTurnDeps) {
   store.appendEvent({ kind: 'note', rawText: text, summary: text });
   const snapshot = store.getSnapshot();
   const trace: ToolTraceItem[] = [];
-  const context: AgentContext = { store, reminders, report, trace };
-  const agent = buildAgent(config, snapshot, { allowMockModel: deps.allowMockModel });
+  const context: AgentContext = {
+    store,
+    reminders,
+    report,
+    trace,
+    skills,
+    workspace: deps.workspace ?? getWorkspace(),
+  };
+  const skillsBlock = skills?.getAvailableSkillsPrompt() ?? '';
+  const agent = buildAgent(config, snapshot, skillsBlock, { allowMockModel: deps.allowMockModel });
   return { store, agent, trace, context };
 }
 

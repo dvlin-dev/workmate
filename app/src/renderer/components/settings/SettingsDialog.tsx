@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CircleCheck, CircleX, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { ONEAPI_TOKEN_URL } from '@shared/config';
 import {
   Dialog,
   DialogContent,
@@ -129,16 +128,7 @@ export function SettingsDialog({
               placeholder="sk-..."
             />
             <p className="text-xs text-muted-foreground">
-              去{' '}
-              <a
-                className="text-brand underline underline-offset-2"
-                href={ONEAPI_TOKEN_URL}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                {ONEAPI_TOKEN_URL}
-              </a>{' '}
-              获取 token。
+              任意 OpenAI 兼容服务的 key（OpenAI / 自建网关 / 第三方均可），仅保存在本地。
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -147,7 +137,7 @@ export function SettingsDialog({
               id="model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder="ernie-3.5-8k"
+              placeholder="gpt-5.5"
             />
           </div>
           <div>

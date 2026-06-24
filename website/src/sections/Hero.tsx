@@ -19,7 +19,7 @@ export function Hero() {
         <div ref={eyebrowRef} className="mb-6 flex justify-center">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card/70 px-3.5 py-1.5 text-xs font-medium text-muted-foreground backdrop-blur-sm">
             <Sparkles size={13} className="text-brand" aria-hidden="true" />
-            AI-native · 用说话管理周目标 · 仅 macOS · 开源
+            你的 AI 工作搭子 · 仅 macOS · 开源免费
           </span>
         </div>
 
@@ -27,10 +27,10 @@ export function Hero() {
           ref={titleRef}
           className="mb-6 text-4xl font-extrabold leading-[1.12] tracking-tight text-foreground sm:text-5xl md:text-6xl"
         >
-          会帮你管目标的工作搭子，
+          你忙你的，
           <br />
           <span className="bg-gradient-to-r from-brand to-brand-light bg-clip-text text-transparent">
-            盯着进度、推你做完
+            目标别再悄悄烂尾
           </span>
         </h1>
 
@@ -38,7 +38,7 @@ export function Hero() {
           ref={subRef}
           className="mx-auto mb-10 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg"
         >
-          像聊天一样说出目标和进展，搭子替你结构化成「周目标树」、盯住每一项的推进、停滞了主动推你一把、该提醒时写进「提醒事项」——周五还顺手生成一份叙事周报。你只管说，目标它替你盯。
+          这周想做啥，随口跟我说一声——我帮你记上、理清楚，盯着一项项往前走，哪个好几天没动静，我比你还急、会喊你一声。到周五？周报我也顺手给你攒好了。
         </p>
 
         <div ref={ctaRef} className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

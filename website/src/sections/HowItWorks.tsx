@@ -4,18 +4,18 @@ import { useScrollReveal, useScrollRevealGroup } from '../hooks/useScrollReveal'
 const STEPS = [
   {
     icon: MessageSquare,
-    title: '说出目标和进展',
-    desc: '把本周想做成的几件事、刚刚的推进像发消息一样讲给搭子听，不用填表、不用建卡片。一段话就能立起整周的目标。',
+    title: '随口说给我听',
+    desc: '这周想做啥、刚推进了啥，像发消息一样讲给我就行——不用填表、不用建卡片。一段话，我就把这周的目标给你立起来。',
   },
   {
     icon: ListTree,
-    title: '搭子盯住每个目标的推进',
-    desc: '内容被拆成「周目标树」，看板实时反映；你随口同步一句，它就归因到对应目标、更新进度。哪个目标停摆了，它主动来问、推你一把。',
+    title: '我帮你盯着往前走',
+    desc: '我把它们理成一张周目标清单，你随口同步一句，我就知道是哪件事、推到哪了。谁好几天没动静，我会主动来问你一句、推你一把。',
   },
   {
     icon: FileText,
-    title: '到点提醒，周五顺手复盘',
-    desc: '带日期的待办写进「提醒事项」，由系统按时喊你；周五一句「生成周报」，把这周每个目标推进到哪、卡在哪，写成四段式叙事周报。',
+    title: '到点提醒，周五交周报',
+    desc: '该记的待办我写进「提醒事项」，到点系统喊你；周五你说一句，我把这周每件事做到哪、卡在哪，写成一份能直接发的周报。',
   },
 ];
 
@@ -27,10 +27,10 @@ export function HowItWorks() {
       <div className="mx-auto max-w-5xl">
         <div ref={headRef} className="mb-12 text-center">
           <h2 className="mb-3 text-2xl font-bold tracking-tight sm:text-3xl">
-            你只管说，目标交给搭子盯
+            你只管说，剩下的交给我
           </h2>
           <p className="mx-auto max-w-2xl text-muted-foreground">
-            唯一的输入方式就是像聊天一样「说」。目标看板由搭子替你维护和推进，不是你要手动拖拽的对象——这是它和普通效率软件的根本区别。
+            唯一要做的就是像聊天一样跟我说说。那张目标清单是我替你盯着、替你更新的，不用你一格格手动拖——这就是搭子和普通效率工具的区别。
           </p>
         </div>
         <div ref={ref} className="grid grid-cols-1 gap-5 sm:grid-cols-3">

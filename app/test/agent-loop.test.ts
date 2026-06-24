@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { WorkmateStore, createEmptyData } from '../src/main/store';
 import { MockReminderBridge } from '../src/main/reminders/mock';
 import {
@@ -28,6 +31,7 @@ function makeDeps(options: { allowMockModel?: boolean } = {}): {
     reminders: new MockReminderBridge(store),
     report,
     allowMockModel: options.allowMockModel ?? true,
+    workspace: { root: mkdtempSync(join(tmpdir(), 'workmate-agent-test-')) },
   };
   return { store, deps, reportCalls: () => reportCalls };
 }

@@ -4,6 +4,7 @@
 
 - [milestones.md](./milestones.md) — 8 个里程碑、验收标准、测试映射（先闭环后加分）
 - [task-breakdown.md](./task-breakdown.md) — 有序、可执行、带 DoD 的任务清单（goal 模式逐条推进）
+- [skills-integration.md](./skills-integration.md) — Skills（技能）集成方案，**待审核**：最小本地闭环 + agent skill 工具 + 设置页管理
 
 ## 执行总原则
 

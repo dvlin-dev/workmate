@@ -26,6 +26,10 @@ export const CH = {
   boardAddTask: 'board:addTask',
   boardSetProgress: 'board:setProgress',
   boardClearWeek: 'board:clearWeek',
+  skillsList: 'skills:list',
+  skillsGetDetail: 'skills:getDetail',
+  skillsSetEnabled: 'skills:setEnabled',
+  skillsOpenDirectory: 'skills:openDirectory',
 } as const;
 
 export type AppErrorCode =
@@ -71,6 +75,22 @@ export interface NudgePayload {
   message: string;
 }
 
+/** 技能（skill）摘要（渲染层列表用） */
+export interface SkillSummary {
+  name: string;
+  title: string;
+  description: string;
+  enabled: boolean;
+  location: string;
+  updatedAt: number;
+}
+
+/** 技能详情（含正文与文件引用） */
+export interface SkillDetail extends SkillSummary {
+  content: string;
+  files: string[];
+}
+
 /** 深度可选（config:set 的 patch 入参） */
 export type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : T;
 
@@ -108,6 +128,13 @@ export interface WorkmateApi {
   };
   reminders: {
     write(taskId: string): Promise<AppResult<{ reminderId: string }>>;
+  };
+  /** 技能管理（开放平台）：查看 / 启停 / 打开目录 */
+  skills: {
+    list(): Promise<AppResult<SkillSummary[]>>;
+    getDetail(name: string): Promise<AppResult<SkillDetail>>;
+    setEnabled(name: string, enabled: boolean): Promise<AppResult<SkillSummary>>;
+    openDirectory(name: string): Promise<AppResult<void>>;
   };
   nudge: {
     onNotify(handler: (payload: NudgePayload) => void): () => void;
