@@ -58,20 +58,44 @@ describe('WorkmateStore · 目标 CRUD 与进度流不变量', () => {
     expect(created[0].relatedGoalId).toBe(goalId);
   });
 
-  it('updateProgress 改进度并落 progress_update（summary=note）', () => {
-    const { goalId } = ctx.store.createGoal('登录联调');
-    const res = ctx.store.updateProgress(goalId, 60, '前端联调打通');
-    expect(res.progress).toBe(60);
-    expect(ctx.store.getSnapshot().goals[0].progress).toBe(60);
-    const events = ctx.store.getCurrentWeekData().events.filter((e) => e.kind === 'progress_update');
-    expect(events).toHaveLength(1);
-    expect(events[0].summary).toBe('前端联调打通');
+  it('进度按完成待办比例派生，全完成自动置 status=done，取消勾选回退', () => {
+    const { goalId } = ctx.store.createGoal('订单服务 v2 重构');
+    const t1 = ctx.store.addTask(goalId, '拆库存耦合').taskId;
+    const t2 = ctx.store.addTask(goalId, 'code review').taskId;
+    const t3 = ctx.store.addTask(goalId, '灰度 10%').taskId;
+    const t4 = ctx.store.addTask(goalId, '全量上线').taskId;
+    expect(ctx.store.getSnapshot().goals[0].progress).toBe(0);
+
+    ctx.store.completeTask(t2);
+    expect(ctx.store.getSnapshot().goals[0].progress).toBe(25);
+
+    ctx.store.completeTask(t1);
+    ctx.store.completeTask(t3);
+    expect(ctx.store.getSnapshot().goals[0].progress).toBe(75);
+
+    ctx.store.completeTask(t4);
+    const done = ctx.store.getSnapshot().goals[0];
+    expect(done.progress).toBe(100);
+    expect(done.status).toBe('done');
+
+    ctx.store.toggleTask(t4); // 取消勾选最后一个 → 回退
+    const back = ctx.store.getSnapshot().goals[0];
+    expect(back.progress).toBe(75);
+    expect(back.status).toBe('active');
   });
 
-  it('progress >= 100 自动置 status=done', () => {
+  it('completeGoal 勾全待办、进度置 100/done 并落 progress_update', () => {
     const { goalId } = ctx.store.createGoal('写设计文档');
-    ctx.store.updateProgress(goalId, 100, '写完了');
-    expect(ctx.store.getSnapshot().goals[0].status).toBe('done');
+    ctx.store.addTask(goalId, '列大纲');
+    ctx.store.addTask(goalId, '写初稿');
+    const res = ctx.store.completeGoal(goalId);
+    expect(res.progress).toBe(100);
+    const goal = ctx.store.getSnapshot().goals[0];
+    expect(goal.status).toBe('done');
+    expect(goal.tasks.every((t) => t.done)).toBe(true);
+    const events = ctx.store.getCurrentWeekData().events.filter((e) => e.kind === 'progress_update');
+    expect(events).toHaveLength(1);
+    expect(events[0].summary).toContain('完成目标');
   });
 
   it('completeTask 标记完成并落 task_done', () => {
@@ -83,10 +107,10 @@ describe('WorkmateStore · 目标 CRUD 与进度流不变量', () => {
     expect(events).toHaveLength(1);
   });
 
-  it('appendEvent 不变量：三类写操作各落且仅落一条事件', () => {
+  it('appendEvent 不变量：goal_created/completeGoal 各落一条，add_task 不落', () => {
     const { goalId } = ctx.store.createGoal('目标A'); // goal_created x1
     ctx.store.addTask(goalId, '子任务'); // 不落事件
-    ctx.store.updateProgress(goalId, 30, '推进了'); // progress_update x1
+    ctx.store.completeGoal(goalId); // progress_update x1（完成目标）
     const week = ctx.store.getCurrentWeekData();
     expect(week.events.filter((e) => e.kind === 'goal_created')).toHaveLength(1);
     expect(week.events.filter((e) => e.kind === 'progress_update')).toHaveLength(1);

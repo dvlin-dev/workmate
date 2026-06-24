@@ -123,8 +123,8 @@ interface WeeklyPlan {
 interface Goal {
   id: string;                   // uuid
   title: string;
-  status: 'active' | 'done';
-  progress: number;             // 0–100，由 agent 归因更新
+  status: 'active' | 'done';    // 派生：有待办时=全完成?done:active；无待办时由 complete_goal 决定
+  progress: number;             // 0–100，**派生值**：round(完成待办/总待办*100)；无待办时跟随 status（done→100，否则 0）
   tasks: Task[];
   createdAt: string;            // ISO 时间
 }
@@ -183,27 +183,30 @@ interface ProgressEvent {
 - 人设：一个简洁、主动、靠谱的"工作搭子"，目标是帮用户追踪并达成目标。
 - 注入当前日期、本周周一日期、今天星期几。
 - 行为准则：
-  - 用户说计划/目标 → 调 `create_goal` / `add_task` 结构化。
-  - 用户说进展（"联调通了""文档写完了"）→ 调 `find_goal` 定位 + `update_progress` 归因，并 `log_event` 落进度流。
+  - 用户说计划/目标 → 调 `create_goal`，并 `add_task` 拆成可勾选待办（进度按完成比例派生，所以要拆细）。
+  - 用户说进展（"联调通了""文档写完了"）→ 调 `find_goal` 定位（返回待办清单+taskId）→ 完成对应 `complete_task`，或整件完成时 `complete_goal`；对不上具体待办时 `log_event` 落进度流。
   - 拆出的待办若带时间或值得提醒 → 调 `write_reminder`。
   - 归因不确定时，先反问一句再落库，不要乱归因。
   - 回复简短口语化，避免长篇大论。
 
 ### 6.3 Tool 集合
 
+> **进度是派生值**：无"设置百分比"的工具——进度 = round(完成待办/总待办*100)，由 store 在待办增删/勾选时自动重算。推进进度只能靠完成待办。所有工具经 `defineTool` 统一落本地执行日志（成功/失败）。
+
 | Tool | 入参 | 作用 | 备注 |
 |------|------|------|------|
 | `create_goal` | `title` | 新建周目标 | 返回 goalId |
-| `add_task` | `goalId, title, due?` | 给目标加待办 | |
-| `update_progress` | `goalId, progress, note` | 更新目标进度并记一条进度事件 | progress 0–100 |
-| `complete_task` | `taskId` | 标记待办完成 | 同时落 `task_done` 事件 |
-| `find_goal` | `query` | 按语义/关键词找最匹配的目标 | 供归因前定位；找不到返回空让 agent 反问 |
-| `log_event` | `rawText, kind, summary, relatedGoalId?` | 往进度流写一条事件 | 所有录入/归因都应落事件 |
+| `add_task` | `goalId, title, due?` | 给目标加待办 | 拆得越细进度越准 |
+| `complete_task` | `taskId` | 标记待办完成 | 进度按比例自动上涨；落 `task_done` |
+| `complete_goal` | `goalId` | 整体收口：勾全待办、进度置 100% | status=done；落 `progress_update` |
+| `find_goal` | `query` | 按关键词找最匹配目标 | 返回待办清单含 taskId；找不到返回空让 agent 反问 |
+| `log_event` | `rawText, kind, summary, relatedGoalId?` | 往进度流写一条事件 | 不改进度条；纯笔记/补充归因用 |
 | `write_reminder` | `taskId` | 把指定 task 写入 macOS 提醒事项 | 经 ReminderBridge；回填 reminderId |
 | `generate_report` | `weekOf?` | 基于该周进度流生成叙事性周报 | 默认当前周；见 6.5 |
 | `get_snapshot` | — | 返回当前周目标树 + 今日聚焦 | 供 agent 自查上下文 |
+| `skill` | `name` | 按名加载已启用技能正文 | 开放平台；见 skills-integration |
 
-> 实现 agent 可在不偏离职责的前提下微调 tool 粒度（如把 `log_event` 合进其他 tool 的副作用），但必须保证"每次归因都落一条 ProgressEvent"这一不变量。
+> 实现 agent 可在不偏离职责的前提下微调 tool 粒度，但必须保证"每次归因都落一条 ProgressEvent"以及"进度只由完成待办派生"这两条不变量。
 
 ### 6.4 一次对话的完整数据流（示例）
 
@@ -211,14 +214,14 @@ interface ProgressEvent {
 用户在输入框说："登录联调跟前端搞通了"
   → 渲染进程 IPC.sendMessage(text)
   → 主进程 AgentOrchestrator 收到
-  → 组装 messages（含当前目标快照：有个"登录联调"目标 active 30%）
+  → 组装 messages（含当前目标快照：有个"登录联调"目标，5 个待办完成 2 个=40%）
   → LLM 返回 tool_calls:
-       find_goal("登录联调") → 命中 goal#1
-       update_progress(goal#1, 60, "前端联调打通") → 写库 + 落 progress_update 事件
+       find_goal("登录联调") → 命中 goal#1（返回待办清单与 taskId）
+       complete_task(task#联调接口) → 写库 + 落 task_done 事件 + 进度按比例重算→60%
   → tool 结果回灌 LLM
-  → LLM 返回文本："搞定 👍 登录联调更新到 60% 了，剩下就差异常态了吧？"
+  → LLM 返回文本："搞定 👍 登录联调的接口那条我帮你勾掉了，进度到 60% 了～"
   → 主进程把文本 + 最新快照 IPC 推回渲染进程
-  → 左侧显示回复，右侧看板"登录联调"进度条跳到 60%
+  → 左侧显示回复，右侧看板"登录联调"进度条跳到 60%（完成比例自动算）
 ```
 
 ### 6.5 周报生成

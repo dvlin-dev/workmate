@@ -72,28 +72,38 @@ describe('Workmate tools · execute 经 invoke', () => {
     ]);
   });
 
-  it('update_progress 归因并落事件', async () => {
+  it('complete_task 按完成比例推动派生进度', async () => {
     const tools = createWorkmateTools();
     const { ctx, store } = makeCtx();
     const { goalId } = await invokeTool(tools, 'create_goal', { title: '写设计文档' }, ctx);
-    const res = await invokeTool(
-      tools,
-      'update_progress',
-      { goalId, progress: 60, note: '初稿写完' },
-      ctx
-    );
-    expect(res.progress).toBe(60);
-    expect(store.getSnapshot().goals[0].progress).toBe(60);
-    const events = store.getCurrentWeekData().events.filter((e) => e.kind === 'progress_update');
-    expect(events.at(-1)?.summary).toBe('初稿写完');
+    await invokeTool(tools, 'add_task', { goalId, title: '列大纲' }, ctx);
+    const { taskId } = await invokeTool(tools, 'add_task', { goalId, title: '写初稿' }, ctx);
+    expect(store.getSnapshot().goals[0].progress).toBe(0);
+    await invokeTool(tools, 'complete_task', { taskId }, ctx);
+    expect(store.getSnapshot().goals[0].progress).toBe(50); // 1/2
   });
 
-  it('find_goal 命中/未命中', async () => {
+  it('complete_goal 整体收口到 100/done', async () => {
+    const tools = createWorkmateTools();
+    const { ctx, store } = makeCtx();
+    const { goalId } = await invokeTool(tools, 'create_goal', { title: '订单服务上线' }, ctx);
+    await invokeTool(tools, 'add_task', { goalId, title: '灰度' }, ctx);
+    const res = await invokeTool(tools, 'complete_goal', { goalId }, ctx);
+    expect(res.progress).toBe(100);
+    const goal = store.getSnapshot().goals[0];
+    expect(goal.status).toBe('done');
+    expect(goal.tasks.every((t: { done: boolean }) => t.done)).toBe(true);
+  });
+
+  it('find_goal 命中/未命中，命中返回待办清单含 taskId', async () => {
     const tools = createWorkmateTools();
     const { ctx } = makeCtx();
-    await invokeTool(tools, 'create_goal', { title: '做完登录联调' }, ctx);
+    const { goalId } = await invokeTool(tools, 'create_goal', { title: '做完登录联调' }, ctx);
+    const { taskId } = await invokeTool(tools, 'add_task', { goalId, title: '联调接口' }, ctx);
     const hit = await invokeTool(tools, 'find_goal', { query: '登录联调' }, ctx);
     expect(hit.matches).toHaveLength(1);
+    expect(hit.matches[0].tasks).toHaveLength(1);
+    expect(hit.matches[0].tasks[0].taskId).toBe(taskId);
     const miss = await invokeTool(tools, 'find_goal', { query: '完全不相关的东西' }, ctx);
     expect(miss.matches).toHaveLength(0);
   });

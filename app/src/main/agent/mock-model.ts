@@ -2,7 +2,7 @@
  * 单测显式启用的确定性 mock 模型（基于 AI SDK MockLanguageModelV3）。
  * 通过读 prompt 消息驱动一个可信的 tool-calling 闭环：
  *   - 计划类输入 → create_goal
- *   - 进展类输入 → find_goal → update_progress
+ *   - 进展类输入 → find_goal → complete_goal（进度由完成比例派生，无"设百分比"工具）
  *   - 周报      → generate_report
  *   - tool 结果回来后 → 一句口语化收尾
  * 仅用于自动化测试，不作为用户运行时的无 key 兜底。
@@ -87,7 +87,8 @@ function finalTextFor(raw: string): string {
   if (raw.includes('"error"') && raw.includes('needsPermission'))
     return '写入提醒事项需要授权，去「系统设置 → 隐私与安全性 → 自动化/提醒事项」允许 Workmate 后再说一次让我写入哈。';
   if (raw.includes('"markdown"')) return '周报生成好了，在右边可以查看～📝';
-  if (raw.includes('"progress"')) return '搞定 👍 进度我帮你更新了。';
+  if (raw.includes('"progress"')) return '搞定 👍 这个目标我帮你标记完成、进度也拉满了。';
+  if (raw.includes('"taskId"')) return '搞定 👍 这条待办我帮你勾掉了，进度自动更新～';
   if (raw.includes('"goalId"')) return '好嘞，已经记到本周看板上了 👍';
   if (raw.includes('"eventId"')) return '记下了，有进展随时同步我～';
   return '好的，已经处理好了 👍';
@@ -102,7 +103,7 @@ function decide(prompt: LanguageModelV3Prompt): LanguageModelV3GenerateResult {
     const lastTool = tools[tools.length - 1];
     const raw = JSON.stringify(lastTool).replace(/\\"/g, '"');
 
-    // find_goal 的结果 → 接着 update_progress
+    // find_goal 的结果 → 接着 complete_goal（进度由完成比例派生，无"设百分比"工具）
     if (raw.includes('"matches"')) {
       const ids = raw.match(/"goalId":"[^"]+"/g) ?? [];
       if (ids.length === 0) {
@@ -112,12 +113,7 @@ function decide(prompt: LanguageModelV3Prompt): LanguageModelV3GenerateResult {
         return mockTextResult('这条进展我看到有好几个相关的目标，你想归到哪一个？');
       }
       const goalId = ids[0]!.replace(/"goalId":"([^"]+)"/, '$1');
-      const progMatch = raw.match(/"progress":(\d+)/);
-      const current = progMatch ? Number.parseInt(progMatch[1], 10) : 0;
-      const userText = lastUserText(prompt);
-      const done = /完成了|搞定了|做完了|全部完成|done|finished|结束了|上线了/i.test(userText);
-      const next = done ? 100 : Math.min(100, current + 30);
-      return mockToolCallResult('update_progress', { goalId, progress: next, note: userText });
+      return mockToolCallResult('complete_goal', { goalId });
     }
 
     // 其它 tool 结果 → 收尾

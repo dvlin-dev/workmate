@@ -6,9 +6,16 @@ function seededStore() {
   const now = () => new Date(2026, 5, 24, 10, 0, 0);
   const store = new WorkmateStore({ initial: createEmptyData(), now });
 
-  // A：有进展（亮点）
+  // A：完成 3/5 待办 → 派生进度 60%，仍 active（进展亮点）
   const { goalId: a } = store.createGoal('登录联调');
-  store.updateProgress(a, 60, '前端联调打通');
+  const a1 = store.addTask(a, '接口联调').taskId;
+  const a2 = store.addTask(a, '前端对接').taskId;
+  const a3 = store.addTask(a, '异常处理').taskId;
+  store.addTask(a, '埋点上报');
+  store.addTask(a, '回归测试');
+  store.completeTask(a1);
+  store.completeTask(a2);
+  store.completeTask(a3);
 
   // B：只创建、无进展（卡点）
   store.createGoal('写设计文档');

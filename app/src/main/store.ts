@@ -88,6 +88,10 @@ export class WorkmateStore {
     this.data = options.initial;
     this.persist = options.persist ?? (() => {});
     this.now = options.now ?? (() => new Date());
+    // 进度改为派生后，归一化历史数据里可能存在的旧"手动百分比"，让启动即与待办完成比例一致。
+    for (const week of this.data.weeks) {
+      for (const goal of week.goals) this.syncGoalProgress(goal);
+    }
   }
 
   // ── 日期 / 周锚 ────────────────────────────────────────────
@@ -210,23 +214,29 @@ export class WorkmateStore {
     if (!goal) throw new Error(`NOT_FOUND: goal ${goalId}`);
     const task: Task = { id: randomUUID(), title, done: false, due };
     goal.tasks.push(task);
+    this.syncGoalProgress(goal); // 新增未完成待办会拉低完成比例
     this.save();
     return { taskId: task.id };
   }
 
-  updateProgress(goalId: string, progress: number, note: string): { goalId: string; progress: number } {
+  /**
+   * 把某目标按"用户口中已完成"整体收口：勾全待办、置 done（进度→100）。
+   * 用于"整个目标做完了"这类无法精确到单个待办的归因。落一条 progress_update 事件。
+   */
+  completeGoal(goalId: string): { goalId: string; title: string; progress: number } {
     const goal = this.findGoalById(goalId);
     if (!goal) throw new Error(`NOT_FOUND: goal ${goalId}`);
-    goal.progress = clampProgress(progress);
-    goal.status = goal.progress >= 100 ? 'done' : 'active';
+    for (const task of goal.tasks) task.done = true;
+    goal.status = 'done';
+    this.syncGoalProgress(goal);
     this.pushEvent({
       kind: 'progress_update',
-      rawText: note,
-      summary: note,
+      rawText: goal.title,
+      summary: `完成目标：${goal.title}`,
       relatedGoalId: goalId,
     });
     this.save();
-    return { goalId, progress: goal.progress };
+    return { goalId, title: goal.title, progress: goal.progress };
   }
 
   completeTask(taskId: string): { taskId: string } {
@@ -234,6 +244,7 @@ export class WorkmateStore {
     if (!located) throw new Error(`NOT_FOUND: task ${taskId}`);
     const { goal, task } = located;
     task.done = true;
+    this.syncGoalProgress(goal); // 进度跟随完成比例
     this.pushEvent({
       kind: 'task_done',
       rawText: task.title,
@@ -250,6 +261,7 @@ export class WorkmateStore {
     if (!located) throw new Error(`NOT_FOUND: task ${taskId}`);
     const { goal, task } = located;
     task.done = false;
+    this.syncGoalProgress(goal); // 取消勾选会回退进度与完成态
     this.pushEvent({
       kind: 'note',
       rawText: task.title,
@@ -326,6 +338,22 @@ export class WorkmateStore {
   }
 
   // ── 内部 ──────────────────────────────────────────────────
+  /**
+   * 进度/状态的唯一真相：由待办完成比例派生（不手动赋值进度数字）。
+   * - 有待办：progress = round(done/total*100)，status = 全完成 ? done : active。
+   * - 无待办：进度跟随 status（completeGoal 标记完成→100，否则 0），不擅自改 status。
+   */
+  private syncGoalProgress(goal: Goal): void {
+    const total = goal.tasks.length;
+    if (total === 0) {
+      goal.progress = goal.status === 'done' ? 100 : 0;
+      return;
+    }
+    const done = goal.tasks.filter((t) => t.done).length;
+    goal.progress = clampProgress((done / total) * 100);
+    goal.status = done === total ? 'done' : 'active';
+  }
+
   private findGoalById(goalId: string): Goal | undefined {
     return this.getCurrentWeek().goals.find((g) => g.id === goalId);
   }
